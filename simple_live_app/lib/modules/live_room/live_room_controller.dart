@@ -22,6 +22,7 @@ import 'package:simple_live_app/modules/live_room/player/player_controller.dart'
 import 'package:simple_live_app/modules/settings/danmu_settings_page.dart';
 import 'package:simple_live_app/services/db_service.dart';
 import 'package:simple_live_app/services/follow_service.dart';
+import 'package:simple_live_app/services/live_audio_service.dart';
 import 'package:simple_live_app/widgets/desktop_refresh_button.dart';
 import 'package:simple_live_app/widgets/follow_user_item.dart';
 import 'package:simple_live_core/simple_live_core.dart';
@@ -321,6 +322,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
       followed.value = DBService.instance.getFollowExist("${site.id}_$roomId");
       online.value = detail.value!.online;
       liveStatus.value = detail.value!.status || detail.value!.isRecord;
+      updateAudioSession();
       if (liveStatus.value) {
         getPlayQualites();
       }
@@ -416,6 +418,28 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
     setPlayer();
   }
 
+  void updateAudioSession() {
+    if (detail.value == null) return;
+    LiveAudioService.instance.startSession(
+      roomId: "${site.id}_$roomId",
+      title: detail.value!.title.isNotEmpty ? detail.value!.title : "直播间",
+      artist: detail.value!.userName.isNotEmpty ? detail.value!.userName : site.name,
+      artUri: detail.value!.cover.isNotEmpty
+          ? detail.value!.cover
+          : (detail.value!.userAvatar.isNotEmpty ? detail.value!.userAvatar : null),
+      onPlay: () async {
+        await player.play();
+      },
+      onPause: () async {
+        await player.pause();
+      },
+      onStop: () async {
+        await player.pause();
+        LiveAudioService.instance.stopSession();
+      },
+    );
+  }
+
   void initPlaylist() async {
     currentLineInfo.value = "线路${currentLineIndex + 1}";
     errorMsg.value = "";
@@ -432,6 +456,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
     await initializePlayer();
 
     await player.open(Playlist(mediaList));
+    updateAudioSession();
   }
 
   void setPlayer() async {

@@ -19,6 +19,7 @@ import 'package:simple_live_app/app/controller/base_controller.dart';
 import 'package:simple_live_app/app/custom_throttle.dart';
 import 'package:simple_live_app/app/log.dart';
 import 'package:simple_live_app/app/utils.dart';
+import 'package:simple_live_app/services/live_audio_service.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -654,6 +655,7 @@ mixin PlayerGestureControlMixin
 
 class PlayerController extends BaseController
     with
+        WidgetsBindingObserver,
         PlayerMixin,
         PlayerStateMixin,
         PlayerDanmakuMixin,
@@ -661,11 +663,32 @@ class PlayerController extends BaseController
         PlayerGestureControlMixin {
   @override
   void onInit() {
+    WidgetsBinding.instance.addObserver(this);
     initSystem();
     initStream();
     //设置音量
     player.setVolume(AppSettingsController.instance.playerVolume.value);
     super.onInit();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
+      // 后台播放模式下，如果未开启后台自动暂停，可关闭视频渲染通道以极大节省性能与电量
+      if (!AppSettingsController.instance.playerAutoPause.value && Platform.isAndroid) {
+        try {
+          (player.platform as dynamic)?.setProperty('vid', 'no');
+        } catch (_) {}
+      }
+    } else if (state == AppLifecycleState.resumed) {
+      // 返回前台恢复视频渲染
+      if (!AppSettingsController.instance.playerAutoPause.value && Platform.isAndroid) {
+        try {
+          (player.platform as dynamic)?.setProperty('vid', 'auto');
+        } catch (_) {}
+      }
+    }
   }
 
   StreamSubscription<String>? _errorSubscription;
@@ -688,6 +711,7 @@ class PlayerController extends BaseController
     });
 
     _playingSubscription = player.stream.playing.listen((event) {
+      LiveAudioService.instance.updatePlayingState(event);
       if (event) {
         WakelockPlus.enable();
         Log.d("Playing");
@@ -836,6 +860,8 @@ class PlayerController extends BaseController
   @override
   void onClose() async {
     Log.w("播放器关闭");
+    WidgetsBinding.instance.removeObserver(this);
+    LiveAudioService.instance.stopSession();
     if (smallWindowState.value) {
       exitSmallWindow();
     }

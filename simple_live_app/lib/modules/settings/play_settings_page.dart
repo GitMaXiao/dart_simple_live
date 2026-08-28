@@ -75,6 +75,7 @@ class PlaySettingsPage extends GetView<AppSettingsController> {
                 Obx(
                   () => SettingsSwitch(
                     title: "进入后台自动暂停",
+                    subtitle: "关闭后切后台/锁屏可继续播放音频并通过通知栏控制",
                     value: controller.playerAutoPause.value,
                     onChanged: (e) {
                       controller.setPlayerAutoPause(e);
