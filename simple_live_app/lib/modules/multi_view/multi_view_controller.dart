@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:canvas_danmaku/canvas_danmaku.dart';
 import 'package:flutter/services.dart';
@@ -26,12 +27,38 @@ class MultiViewController extends GetxController {
   final RxInt focusedIndex = 0.obs;
   final RxBool isSoloAudioMode = true.obs; // 默认仅主焦点发声
   final RxBool isFullScreen = false.obs;
+  final RxBool showFullScreenControls = true.obs; // 全屏悬浮控制栏显示状态
   final Rx<MultiViewDanmakuMode> danmakuMode = MultiViewDanmakuMode.primary.obs; // 默认开启主视角弹幕
+
+  Timer? _hideControlsTimer;
 
   DanmakuController? globalDanmakuController;
 
   void initGlobalDanmakuController(DanmakuController c) {
     globalDanmakuController = c;
+  }
+
+  void toggleControls() {
+    showFullScreenControls.value = !showFullScreenControls.value;
+    if (showFullScreenControls.value) {
+      _startHideControlsTimer();
+    } else {
+      _hideControlsTimer?.cancel();
+    }
+  }
+
+  void showControlsTemporarily() {
+    showFullScreenControls.value = true;
+    _startHideControlsTimer();
+  }
+
+  void _startHideControlsTimer() {
+    _hideControlsTimer?.cancel();
+    _hideControlsTimer = Timer(const Duration(seconds: 4), () {
+      if (isFullScreen.value) {
+        showFullScreenControls.value = false;
+      }
+    });
   }
 
   late final List<MultiViewItemController> items;
@@ -229,12 +256,16 @@ class MultiViewController extends GetxController {
   void toggleFullScreen() {
     isFullScreen.value = !isFullScreen.value;
     if (isFullScreen.value) {
+      showFullScreenControls.value = true;
+      _startHideControlsTimer();
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
       SystemChrome.setPreferredOrientations([
         DeviceOrientation.landscapeLeft,
         DeviceOrientation.landscapeRight,
       ]);
     } else {
+      _hideControlsTimer?.cancel();
+      showFullScreenControls.value = true;
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
       SystemChrome.setPreferredOrientations([
         DeviceOrientation.portraitUp,
@@ -247,6 +278,7 @@ class MultiViewController extends GetxController {
 
   @override
   void onClose() {
+    _hideControlsTimer?.cancel();
     WakelockPlus.disable();
     if (Platform.isAndroid || Platform.isIOS) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);

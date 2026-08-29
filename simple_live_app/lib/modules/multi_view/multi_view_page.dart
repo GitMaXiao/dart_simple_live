@@ -180,79 +180,153 @@ class MultiViewPage extends GetView<MultiViewController> {
               ),
             ),
 
-            // 全屏模式下的悬浮胶囊控制条
-            Obx(
-              () => controller.isFullScreen.value
-                  ? Positioned(
-                      top: 16,
-                      right: 16,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withAlpha(180),
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: Colors.white24, width: 0.8),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withAlpha(120),
-                              blurRadius: 10,
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              visualDensity: VisualDensity.compact,
-                              icon: const Icon(Remix.layout_grid_line, color: Colors.white, size: 17),
-                              tooltip: "切换布局",
-                              onPressed: () => controller.cycleLayout(),
-                            ),
-                            IconButton(
-                              visualDensity: VisualDensity.compact,
-                              icon: Icon(
-                                controller.isSoloAudioMode.value
-                                    ? Remix.volume_up_line
-                                    : Remix.sound_module_line,
-                                color: controller.isSoloAudioMode.value
-                                    ? Colors.blueAccent
-                                    : Colors.orangeAccent,
-                                size: 17,
-                              ),
-                              tooltip: controller.isSoloAudioMode.value ? "焦点独占音频" : "多路混音",
-                              onPressed: () => controller.toggleAudioMode(),
-                            ),
-                            IconButton(
-                              visualDensity: VisualDensity.compact,
-                              icon: Icon(
-                                controller.danmakuMode.value != MultiViewDanmakuMode.none
-                                    ? Remix.chat_1_line
-                                    : Remix.chat_off_line,
-                                color: controller.danmakuMode.value != MultiViewDanmakuMode.none
-                                    ? Colors.blueAccent
-                                    : Colors.white60,
-                                size: 17,
-                              ),
-                              tooltip: _getDanmakuTooltip(controller.danmakuMode.value),
-                              onPressed: () => controller.cycleDanmakuMode(),
-                            ),
-                            IconButton(
-                              visualDensity: VisualDensity.compact,
-                              icon: const Icon(Remix.fullscreen_exit_line, color: Colors.white, size: 17),
-                              tooltip: "退出全屏",
-                              onPressed: () => controller.toggleFullScreen(),
-                            ),
-                          ],
-                        ),
-                      ),
-                    )
-                  : const SizedBox.shrink(),
-            ),
+            // 全屏模式下的顶部控制条
+            _buildFullScreenControls(context),
           ],
         ),
       ),
     ),
   );
+  }
+
+  Widget _buildFullScreenControls(BuildContext context) {
+    return Obx(() {
+      if (!controller.isFullScreen.value) {
+        return const SizedBox.shrink();
+      }
+      return AnimatedOpacity(
+        opacity: controller.showFullScreenControls.value ? 1.0 : 0.0,
+        duration: const Duration(milliseconds: 250),
+        child: IgnorePointer(
+          ignoring: !controller.showFullScreenControls.value,
+          child: SafeArea(
+            top: true,
+            bottom: false,
+            left: true,
+            right: true,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                children: [
+                  // 左侧返回与标题胶囊
+                  InkWell(
+                    onTap: () => controller.toggleFullScreen(),
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withAlpha(180),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.white24, width: 0.8),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withAlpha(100),
+                            blurRadius: 8,
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Remix.arrow_left_line, color: Colors.white, size: 16),
+                          const SizedBox(width: 6),
+                          const Text(
+                            "多屏同播",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            "(${_getLayoutName(controller.layout.value)})",
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
+                  // 右侧悬浮胶囊控制条
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withAlpha(180),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: Colors.white24, width: 0.8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withAlpha(120),
+                          blurRadius: 10,
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          visualDensity: VisualDensity.compact,
+                          icon: const Icon(Remix.layout_grid_line, color: Colors.white, size: 17),
+                          tooltip: "切换布局",
+                          onPressed: () {
+                            controller.showControlsTemporarily();
+                            _showLayoutSheet(context);
+                          },
+                        ),
+                        IconButton(
+                          visualDensity: VisualDensity.compact,
+                          icon: Icon(
+                            controller.isSoloAudioMode.value
+                                ? Remix.volume_up_line
+                                : Remix.sound_module_line,
+                            color: controller.isSoloAudioMode.value
+                                ? Colors.blueAccent
+                                : Colors.orangeAccent,
+                            size: 17,
+                          ),
+                          tooltip: controller.isSoloAudioMode.value ? "焦点独占音频" : "多路混音",
+                          onPressed: () {
+                            controller.showControlsTemporarily();
+                            controller.toggleAudioMode();
+                          },
+                        ),
+                        IconButton(
+                          visualDensity: VisualDensity.compact,
+                          icon: Icon(
+                            controller.danmakuMode.value != MultiViewDanmakuMode.none
+                                ? Remix.chat_1_line
+                                : Remix.chat_off_line,
+                            color: controller.danmakuMode.value != MultiViewDanmakuMode.none
+                                ? Colors.blueAccent
+                                : Colors.white60,
+                            size: 17,
+                          ),
+                          tooltip: _getDanmakuTooltip(controller.danmakuMode.value),
+                          onPressed: () {
+                            controller.showControlsTemporarily();
+                            controller.cycleDanmakuMode();
+                          },
+                        ),
+                        IconButton(
+                          visualDensity: VisualDensity.compact,
+                          icon: const Icon(Remix.fullscreen_exit_line, color: Colors.white, size: 17),
+                          tooltip: "退出全屏",
+                          onPressed: () => controller.toggleFullScreen(),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    });
   }
 
   void _showLayoutSheet(BuildContext context) {
@@ -404,9 +478,9 @@ class MultiViewPage extends GetView<MultiViewController> {
         } else {
           return Column(
             children: [
-              Expanded(flex: 2, child: _buildItemView(context, 0)),
+              Expanded(flex: 5, child: _buildItemView(context, 0)),
               Expanded(
-                flex: 1,
+                flex: 3,
                 child: Row(
                   children: [
                     Expanded(child: _buildItemView(context, 1)),
@@ -458,7 +532,13 @@ class MultiViewPage extends GetView<MultiViewController> {
           final bool isUltraNarrow = itemWidth < 160;
 
           return GestureDetector(
-            onTap: () => controller.setFocus(index),
+            behavior: HitTestBehavior.opaque,
+            onTap: () {
+              controller.setFocus(index);
+              if (controller.isFullScreen.value) {
+                controller.toggleControls();
+              }
+            },
             child: Container(
               margin: const EdgeInsets.all(2.0),
               decoration: BoxDecoration(
@@ -485,9 +565,13 @@ class MultiViewPage extends GetView<MultiViewController> {
                   children: [
                     // 视频或未添加占位
                     if (item.hasRoom.value)
-                      Video(
-                        controller: item.videoController,
-                        controls: NoVideoControls,
+                      Center(
+                        child: Video(
+                          controller: item.videoController,
+                          controls: NoVideoControls,
+                          fit: BoxFit.contain,
+                          alignment: Alignment.center,
+                        ),
                       )
                     else
                       _buildEmptyPlaceholder(context, index, isNarrow),
