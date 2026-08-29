@@ -38,4 +38,7 @@ class RoutePath {
 
   /// 分类详情
   static const kCategoryDetail = "/category/detail";
+
+  /// 多屏同播 / 多视角
+  static const kMultiView = "/multi_view";
 }

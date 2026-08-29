@@ -114,6 +114,15 @@ class HomePage extends GetView<HomeController> {
                       Expanded(
                         child: HomeBigButton(
                           focusNode: AppFocusNode(),
+                          text: "多屏同播",
+                          iconData: Remix.layout_grid_line,
+                          onTap: controller.toMultiView,
+                        ),
+                      ),
+                      AppStyle.hGap48,
+                      Expanded(
+                        child: HomeBigButton(
+                          focusNode: AppFocusNode(),
                           text: "数据同步",
                           iconData: Icons.devices,
                           onTap: controller.toSync,

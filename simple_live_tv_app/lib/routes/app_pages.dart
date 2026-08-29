@@ -17,6 +17,8 @@ import 'package:simple_live_tv_app/modules/hot_live/hot_live_controller.dart';
 import 'package:simple_live_tv_app/modules/hot_live/hot_live_page.dart';
 import 'package:simple_live_tv_app/modules/live_room/live_room_controller.dart';
 import 'package:simple_live_tv_app/modules/live_room/live_room_page.dart';
+import 'package:simple_live_tv_app/modules/multi_view/multi_view_controller.dart';
+import 'package:simple_live_tv_app/modules/multi_view/multi_view_page.dart';
 import 'package:simple_live_tv_app/modules/search/anchor/search_anchor_controller.dart';
 import 'package:simple_live_tv_app/modules/search/anchor/search_anchor_page.dart';
 import 'package:simple_live_tv_app/modules/search/room/search_room_controller.dart';
@@ -142,6 +144,14 @@ class AppPages {
             Get.arguments,
           ),
         ),
+      ],
+    ),
+    // 多屏同播 / 多视角
+    GetPage(
+      name: RoutePath.kMultiView,
+      page: () => const TVMultiViewPage(),
+      bindings: [
+        BindingsBuilder.put(() => TVMultiViewController()),
       ],
     ),
   ];
