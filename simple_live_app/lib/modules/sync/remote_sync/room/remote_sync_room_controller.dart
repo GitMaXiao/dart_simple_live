@@ -38,42 +38,57 @@ class RemoteSyncRoomController extends BaseController {
   Timer? _timer;
   var countDown = 600.obs;
 
+  Rx<SignalRConnectionState> state =
+      Rx<SignalRConnectionState>(SignalRConnectionState.connecting);
+
   @override
   void onInit() {
+    listenSignalR();
     connect();
     super.onInit();
   }
 
   void connect() async {
-    listenSignalR();
-    await signalR.connect();
-    if (signalR.state == SignalRConnectionState.connected) {
-      if (roomId.isEmpty) {
-        createRoom();
+    state.value = SignalRConnectionState.connecting;
+    try {
+      await signalR.connect();
+      if (signalR.state == SignalRConnectionState.connected) {
+        if (roomId.isEmpty) {
+          createRoom();
+        } else {
+          joinRoom(roomId);
+        }
       } else {
-        joinRoom(roomId);
+        state.value = SignalRConnectionState.disconnected;
       }
+    } catch (e) {
+      Log.e("SignalR connect error: $e", StackTrace.current);
+      state.value = SignalRConnectionState.disconnected;
     }
+  }
+
+  void retry() {
+    connect();
   }
 
   void createRoom() async {
     try {
       var resp = await signalR.createRoom();
-      if (resp.isSuccess) {
+      if (resp.isSuccess && resp.data != null && resp.data!.isNotEmpty) {
         currentRoomId.value = resp.data!;
         _startTimer();
       } else {
-        SmartDialog.showToast(resp.message);
-        Get.back();
+        SmartDialog.showToast(resp.message.isNotEmpty ? resp.message : "创建房间失败");
+        state.value = SignalRConnectionState.disconnected;
       }
     } catch (e) {
-      SmartDialog.showToast("创建房间失败");
-      Get.back();
+      SmartDialog.showToast("创建房间失败，请检查网络");
+      state.value = SignalRConnectionState.disconnected;
     }
   }
 
   void _startTimer() {
-    // 倒计时5分钟，自动关闭页面
+    _timer?.cancel();
     countDown.value = 600;
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       countDown--;
@@ -88,16 +103,19 @@ class RemoteSyncRoomController extends BaseController {
     try {
       var resp = await signalR.joinRoom(roomId);
       if (!resp.isSuccess) {
-        SmartDialog.showToast(resp.message);
-        Get.back();
+        SmartDialog.showToast(resp.message.isNotEmpty ? resp.message : "加入房间失败");
+        state.value = SignalRConnectionState.disconnected;
       }
     } catch (e) {
-      SmartDialog.showToast("加入房间失败");
-      Get.back();
+      SmartDialog.showToast("加入房间失败，请检查网络");
+      state.value = SignalRConnectionState.disconnected;
     }
   }
 
   void listenSignalR() {
+    signalR.stateStream.listen((event) {
+      state.value = event;
+    });
     _roomDestroyedSubscription = signalR.onRoomDestroyedStream.listen((roomId) {
       SmartDialog.showToast("房间已被销毁");
       Get.back();

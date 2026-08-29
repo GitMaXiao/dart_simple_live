@@ -116,38 +116,54 @@ class RemoteSyncRoomPage extends GetView<RemoteSyncRoomController> {
           ),
           SettingsCard(
             child: Obx(
-              () => ListTile(
-                contentPadding: AppStyle.edgeInsetsL12,
-                title: SelectableText(
-                  controller.currentRoomId.value,
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                trailing: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: const Icon(
-                        Icons.copy,
-                        size: 20,
-                      ),
+              () {
+                if (controller.currentRoomId.value == "--" &&
+                    controller.state.value == SignalRConnectionState.disconnected) {
+                  return ListTile(
+                    leading: const Icon(Icons.cloud_off, color: Colors.red),
+                    title: const Text("创建/连接房间失败"),
+                    subtitle: const Text("请检查网络连接后重试"),
+                    trailing: FilledButton.tonal(
                       onPressed: () {
-                        Utils.copyToClipboard(controller.currentRoomId.value);
+                        controller.retry();
                       },
+                      child: const Text("重试"),
                     ),
-                    IconButton(
-                      icon: const Icon(
-                        Icons.qr_code,
-                        size: 20,
+                  );
+                }
+                return ListTile(
+                  contentPadding: AppStyle.edgeInsetsL12,
+                  title: SelectableText(
+                    controller.currentRoomId.value,
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  trailing: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(
+                          Icons.copy,
+                          size: 20,
+                        ),
+                        onPressed: () {
+                          Utils.copyToClipboard(controller.currentRoomId.value);
+                        },
                       ),
-                      onPressed: () {
-                        controller.showQRInfo();
-                      },
-                    ),
-                    AppStyle.hGap4,
-                  ],
-                ),
-              ),
+                      IconButton(
+                        icon: const Icon(
+                          Icons.qr_code,
+                          size: 20,
+                        ),
+                        onPressed: () {
+                          controller.showQRInfo();
+                        },
+                      ),
+                      AppStyle.hGap4,
+                    ],
+                  ),
+                );
+              },
             ),
           ),
           Padding(
