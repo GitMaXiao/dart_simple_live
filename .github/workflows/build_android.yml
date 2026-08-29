@@ -19,9 +19,19 @@ on:
         type: boolean
         default: true
   push:
+    branches:
+      - master
+      - main
+      - dev
     tags:
       - 'v*'
+      - 'dev_v*'
       - 'android_v*'
+      - 'release_*'
+  pull_request:
+    branches:
+      - master
+      - main
 
 jobs:
   build-android:
@@ -96,38 +106,38 @@ jobs:
 
       # ----------------- 构建移动端 -----------------
       - name: 获取移动端依赖
-        if: ${{ github.event_name == 'push' || inputs.build_mobile }}
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.build_mobile }}
         run: |
           cd simple_live_app
           flutter pub get
 
       - name: 构建移动端通用 APK (Universal)
-        if: ${{ github.event_name == 'push' || inputs.build_mobile }}
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.build_mobile }}
         run: |
           cd simple_live_app
           flutter build apk --release
 
       - name: 构建移动端架构分包 APK (Split per ABI)
-        if: ${{ (github.event_name == 'push' || inputs.build_mobile) && (inputs.split_per_abi || github.event_name == 'push') }}
+        if: ${{ github.event_name != 'workflow_dispatch' || (inputs.build_mobile && inputs.split_per_abi) }}
         run: |
           cd simple_live_app
           flutter build apk --release --split-per-abi
 
       # ----------------- 构建 TV 端 -----------------
       - name: 获取 TV 端依赖
-        if: ${{ github.event_name == 'push' || inputs.build_tv }}
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.build_tv }}
         run: |
           cd simple_live_tv_app
           flutter pub get
 
       - name: 构建 TV 端通用 APK
-        if: ${{ github.event_name == 'push' || inputs.build_tv }}
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.build_tv }}
         run: |
           cd simple_live_tv_app
           flutter build apk --release
 
       - name: 构建 TV 端架构分包 APK
-        if: ${{ (github.event_name == 'push' || inputs.build_tv) && (inputs.split_per_abi || github.event_name == 'push') }}
+        if: ${{ github.event_name != 'workflow_dispatch' || (inputs.build_tv && inputs.split_per_abi) }}
         run: |
           cd simple_live_tv_app
           flutter build apk --release --split-per-abi
