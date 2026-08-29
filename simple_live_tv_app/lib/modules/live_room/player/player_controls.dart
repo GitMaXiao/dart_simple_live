@@ -477,14 +477,34 @@ void showPlayerSettings(LiveRoomController controller) {
                 ),
               ),
               Divider(color: Colors.grey.withAlpha(50), height: 36.w),
-              Padding(
-                padding: AppStyle.edgeInsetsH20,
-                child: Text(
-                  "弹幕",
-                  style: AppStyle.textStyleWhite.copyWith(
-                    fontWeight: FontWeight.bold,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Padding(
+                    padding: AppStyle.edgeInsetsH20,
+                    child: Text(
+                      "弹幕",
+                      style: AppStyle.textStyleWhite.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
-                ),
+                  const Spacer(),
+                  Obx(
+                    () => HighlightButton(
+                      focusNode: AppFocusNode(),
+                      iconData: Icons.refresh,
+                      text: controller.danmakuConnecting.value
+                          ? "弹幕连接中..."
+                          : (controller.danmakuConnected.value ? "重连弹幕" : "弹幕未连接(点击重连)"),
+                      selected: !controller.danmakuConnected.value,
+                      onTap: () {
+                        controller.reconnectDanmaku();
+                      },
+                    ),
+                  ),
+                  AppStyle.hGap20,
+                ],
               ),
               AppStyle.vGap24,
               Obx(

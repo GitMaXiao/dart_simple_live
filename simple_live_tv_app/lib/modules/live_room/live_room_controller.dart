@@ -38,6 +38,8 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
 
   Rx<LiveRoomDetail?> detail = Rx<LiveRoomDetail?>(null);
   var online = 0.obs;
+  final RxBool danmakuConnected = false.obs;
+  final RxBool danmakuConnecting = false.obs;
   var followed = false.obs;
   var liveStatus = false.obs;
 
@@ -97,11 +99,23 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
 
   /// 初始化弹幕接收事件
   void initDanmau() {
+    danmakuConnecting.value = true;
+    danmakuConnected.value = false;
+
     liveDanmaku.onMessage = onWSMessage;
+    liveDanmaku.onReady = () {
+      danmakuConnected.value = true;
+      danmakuConnecting.value = false;
+    };
+    liveDanmaku.onClose = (msg) {
+      danmakuConnected.value = false;
+      danmakuConnecting.value = false;
+    };
   }
 
   /// 手动重新连接弹幕服务器
   Future<void> reconnectDanmaku() async {
+    danmakuConnecting.value = true;
     try {
       await liveDanmaku.stop();
       liveDanmaku = site.liveSite.getDanmaku();
@@ -116,6 +130,8 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
       await liveDanmaku.start(danmakuData);
       SmartDialog.showToast("已重连弹幕服务器");
     } catch (e) {
+      danmakuConnecting.value = false;
+      danmakuConnected.value = false;
       SmartDialog.showToast("弹幕重连失败: $e");
     }
   }
