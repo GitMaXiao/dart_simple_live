@@ -153,6 +153,9 @@ class AppSettingsController extends GetxController {
     updateFollowThreadCount.value = LocalStorageService.instance
         .getValue(LocalStorageService.kUpdateFollowThreadCount, 0);  // 默认 0 = 自动
 
+    liveNotificationEnable.value = LocalStorageService.instance
+        .getValue(LocalStorageService.kLiveNotificationEnable, true);
+
     initSiteSort();
     initHomeSort();
 
@@ -530,5 +533,12 @@ class AppSettingsController extends GetxController {
     playerForceHttps.value = e;
     LocalStorageService.instance
         .setValue(LocalStorageService.kPlayerForceHttps, e);
+  }
+
+  var liveNotificationEnable = true.obs;
+  void setLiveNotificationEnable(bool e) {
+    liveNotificationEnable.value = e;
+    LocalStorageService.instance
+        .setValue(LocalStorageService.kLiveNotificationEnable, e);
   }
 }

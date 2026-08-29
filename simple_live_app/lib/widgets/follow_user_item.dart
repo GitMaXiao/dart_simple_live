@@ -5,6 +5,7 @@ import 'package:simple_live_app/app/app_style.dart';
 import 'package:simple_live_app/app/log.dart';
 import 'package:simple_live_app/app/sites.dart';
 import 'package:simple_live_app/models/db/follow_user.dart';
+import 'package:simple_live_app/services/follow_service.dart';
 import 'package:simple_live_app/widgets/net_image.dart';
 import 'dart:ui' as ui;
 
@@ -116,23 +117,41 @@ class FollowUserItem extends StatelessWidget {
             ),
         ],
       ),
-      trailing: playing
-          ? const SizedBox(
-              width: 64,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Obx(() {
+            bool isNotify = FollowService.instance.isNotifyEnabled(item.id);
+            return IconButton(
+              tooltip: isNotify ? "开播提醒已开启" : "开播提醒已关闭",
+              icon: Icon(
+                isNotify ? Remix.notification_fill : Remix.notification_line,
+                color: isNotify ? Theme.of(context).colorScheme.primary : Colors.grey,
+                size: 20,
+              ),
+              onPressed: () {
+                FollowService.instance.toggleNotify(item);
+              },
+            );
+          }),
+          if (playing)
+            const SizedBox(
+              width: 48,
               child: Center(
                 child: Icon(
                   Icons.play_arrow,
                 ),
               ),
             )
-          : (onRemove == null
-              ? null
-              : IconButton(
-                  onPressed: () {
-                    onRemove?.call();
-                  },
-                  icon: const Icon(Remix.dislike_line),
-                )),
+          else if (onRemove != null)
+            IconButton(
+              onPressed: () {
+                onRemove?.call();
+              },
+              icon: const Icon(Remix.dislike_line),
+            ),
+        ],
+      ),
       onTap: onTap,
       onLongPress: onLongPress,
     );

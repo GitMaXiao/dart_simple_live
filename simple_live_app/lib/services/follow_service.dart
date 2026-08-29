@@ -17,6 +17,8 @@ import 'package:simple_live_app/app/utils.dart';
 import 'package:simple_live_app/models/db/follow_user.dart';
 import 'package:simple_live_app/models/db/follow_user_tag.dart';
 import 'package:simple_live_app/services/db_service.dart';
+import 'package:simple_live_app/services/local_storage_service.dart';
+import 'package:simple_live_app/services/notification_service.dart';
 
 class FollowService extends GetxService {
   StreamSubscription<dynamic>? subscription;
@@ -46,15 +48,48 @@ class FollowService extends GetxService {
   /// 是否正在更新
   var updating = false.obs;
 
+  /// 开启开播提醒的主播ID集合
+  final RxSet<String> notifyUserIds = <String>{}.obs;
+
+  /// 上一次的开播状态记录，用于差量提醒防抖
+  final Map<String, bool> _lastLivingStatus = <String, bool>{};
+
   Timer? updateTimer;
 
   @override
   void onInit() {
+    initNotifyUserIds();
     subscription = EventBus.instance.listen(Constant.kUpdateFollow, (p0) {
       loadData(updateStatus: false);
     });
     initTimer();
     super.onInit();
+  }
+
+  void initNotifyUserIds() {
+    var rawList = LocalStorageService.instance
+        .getValue(LocalStorageService.kNotifyFollowUsers, <dynamic>[]);
+    notifyUserIds.assignAll(rawList.map((e) => e.toString()));
+  }
+
+  bool isNotifyEnabled(String id) {
+    return notifyUserIds.contains(id);
+  }
+
+  Future<void> toggleNotify(FollowUser user) async {
+    if (notifyUserIds.contains(user.id)) {
+      notifyUserIds.remove(user.id);
+      SmartDialog.showToast("已关闭 ${user.userName} 的开播提醒");
+    } else {
+      // 开启前请求通知权限
+      await NotificationService.instance.requestPermission();
+      notifyUserIds.add(user.id);
+      SmartDialog.showToast("已开启 ${user.userName} 的开播提醒");
+    }
+    await LocalStorageService.instance.setValue(
+      LocalStorageService.kNotifyFollowUsers,
+      notifyUserIds.toList(),
+    );
   }
 
   // 添加标签
@@ -232,8 +267,26 @@ class FollowService extends GetxService {
         // 只有正在直播时才查详细信息
         var detail = await site.liveSite.getRoomDetail(roomId: item.roomId);
         item.liveStartTime = detail.showTime;
+
+        // 检查是否开启了开播提醒且之前未开播（差量检测防抖）
+        if (AppSettingsController.instance.liveNotificationEnable.value &&
+            isNotifyEnabled(item.id)) {
+          if (_lastLivingStatus[item.id] != true) {
+            _lastLivingStatus[item.id] = true;
+            NotificationService.instance.showLiveNotification(
+              siteId: item.siteId,
+              roomId: item.roomId,
+              userName: item.userName,
+              title: detail.title,
+              platformName: site.name,
+            );
+          }
+        } else {
+          _lastLivingStatus[item.id] = true;
+        }
       } else {
         item.liveStartTime = null;
+        _lastLivingStatus[item.id] = false;
       }
     } catch (e) {
       Log.logPrint(e);

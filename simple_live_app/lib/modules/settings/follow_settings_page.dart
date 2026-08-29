@@ -73,6 +73,23 @@ class FollowSettingsPage extends GetView<AppSettingsController> {
               ],
             ),
           ),
+          AppStyle.vGap12,
+          SettingsCard(
+            child: Column(
+              children: [
+                Obx(
+                  () => SettingsSwitch(
+                    value: controller.liveNotificationEnable.value,
+                    title: "开播桌面通知提醒",
+                    subtitle: "开启后，在关注列表中被标为提醒的主播开播时弹出系统通知",
+                    onChanged: (e) {
+                      controller.setLiveNotificationEnable(e);
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
