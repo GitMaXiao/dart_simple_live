@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:remixicon/remixicon.dart';
 import 'package:simple_live_app/app/app_style.dart';
+import 'package:simple_live_app/app/controller/app_settings_controller.dart';
 import 'package:simple_live_app/modules/multi_view/multi_view_controller.dart';
 import 'package:simple_live_app/modules/multi_view/multi_view_item_controller.dart';
 
@@ -45,7 +46,7 @@ class MultiViewPage extends GetView<MultiViewController> {
                       itemBuilder: (context) => [
                         const PopupMenuItem(
                           value: MultiViewLayout.two,
-                          child: Text("2 分屏"),
+                          child: Text("2 分屏 (双画面)"),
                         ),
                         const PopupMenuItem(
                           value: MultiViewLayout.three,
@@ -98,7 +99,34 @@ class MultiViewPage extends GetView<MultiViewController> {
         bottom: false,
         child: Stack(
           children: [
+            // 底层分屏播放画面
             Obx(() => _buildLayout(context)),
+
+            // 顶层全局跨全屏弹幕层
+            Positioned.fill(
+              child: Obx(
+                () => Offstage(
+                  offstage: controller.danmakuMode.value == MultiViewDanmakuMode.none,
+                  child: IgnorePointer(
+                    child: DanmakuScreen(
+                      key: const Key("mobile_multiview_global_danmaku"),
+                      createdController: controller.initGlobalDanmakuController,
+                      option: DanmakuOption(
+                        fontSize: AppSettingsController.instance.danmuSize.value > 0
+                            ? AppSettingsController.instance.danmuSize.value
+                            : 14.0,
+                        area: AppSettingsController.instance.danmuArea.value,
+                        duration: AppSettingsController.instance.danmuSpeed.value.toInt() > 0
+                            ? AppSettingsController.instance.danmuSpeed.value.toInt()
+                            : 8,
+                        opacity: AppSettingsController.instance.danmuOpacity.value,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
             // 全屏模式下的悬浮返回与退出全屏按钮
             Obx(
               () => controller.isFullScreen.value
@@ -289,25 +317,6 @@ class MultiViewPage extends GetView<MultiViewController> {
                 )
               else
                 _buildEmptyPlaceholder(context, index),
-
-              // 弹幕图层
-              if (item.hasRoom.value)
-                Obx(() {
-                  bool isVisible = controller.shouldShowDanmaku(index) && item.showDanmaku.value;
-                  return Offstage(
-                    offstage: !isVisible,
-                    child: DanmakuScreen(
-                      key: Key("danmaku_mobile_item_${item.roomId ?? index}"),
-                      createdController: item.initDanmakuController,
-                      option: DanmakuOption(
-                        fontSize: (index == 0 && controller.layout.value == MultiViewLayout.three) ? 14 : 11,
-                        area: 0.65,
-                        duration: 7,
-                        opacity: 0.85,
-                      ),
-                    ),
-                  );
-                }),
 
               // 加载中
               if (item.isLoading.value)

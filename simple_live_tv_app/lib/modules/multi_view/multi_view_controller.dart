@@ -1,3 +1,5 @@
+import 'package:canvas_danmaku/canvas_danmaku.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:simple_live_tv_app/app/app_focus_node.dart';
@@ -24,6 +26,12 @@ class TVMultiViewController extends GetxController {
   final RxInt focusedIndex = 0.obs;
   final RxBool isSoloAudioMode = true.obs; // 默认仅主焦点发声
   final Rx<TVMultiViewDanmakuMode> danmakuMode = TVMultiViewDanmakuMode.primary.obs; // 默认开启主视角弹幕
+
+  DanmakuController? globalDanmakuController;
+
+  void initGlobalDanmakuController(DanmakuController c) {
+    globalDanmakuController = c;
+  }
 
   late final List<MultiViewItemController> items;
   late final List<AppFocusNode> focusNodes = List.generate(
@@ -94,32 +102,53 @@ class TVMultiViewController extends GetxController {
 
   /// 切换弹幕显示模式
   void cycleDanmakuMode() {
+    globalDanmakuController?.clear();
     if (danmakuMode.value == TVMultiViewDanmakuMode.primary) {
       danmakuMode.value = TVMultiViewDanmakuMode.focused;
-      SmartDialog.showToast("弹幕模式: 仅当前焦点视角");
+      SmartDialog.showToast("全屏弹幕: 仅当前焦点视角");
     } else if (danmakuMode.value == TVMultiViewDanmakuMode.focused) {
       danmakuMode.value = TVMultiViewDanmakuMode.all;
-      SmartDialog.showToast("弹幕模式: 全部视角");
+      SmartDialog.showToast("全屏弹幕: 全部视角混排");
     } else if (danmakuMode.value == TVMultiViewDanmakuMode.all) {
       danmakuMode.value = TVMultiViewDanmakuMode.none;
-      SmartDialog.showToast("已关闭弹幕");
+      SmartDialog.showToast("已关闭全屏弹幕");
     } else {
       danmakuMode.value = TVMultiViewDanmakuMode.primary;
-      SmartDialog.showToast("弹幕模式: 仅主视角 (1)");
+      SmartDialog.showToast("全屏弹幕: 仅主视角 (1)");
     }
   }
 
-  /// 判断指定分屏是否应该显示弹幕
-  bool shouldShowDanmaku(int index) {
+  /// 分发来自各分屏的弹幕至大屏全屏弹幕层
+  void dispatchDanmaku(int itemIndex, String message, Color color) {
+    if (danmakuMode.value == TVMultiViewDanmakuMode.none) return;
+    if (itemIndex < 0 || itemIndex >= items.length) return;
+    if (!items[itemIndex].showDanmaku.value) return;
+
+    bool shouldDispatch = false;
     switch (danmakuMode.value) {
       case TVMultiViewDanmakuMode.none:
-        return false;
+        shouldDispatch = false;
+        break;
       case TVMultiViewDanmakuMode.primary:
-        return index == 0;
+        shouldDispatch = (itemIndex == 0);
+        break;
       case TVMultiViewDanmakuMode.focused:
-        return index == focusedIndex.value;
+        shouldDispatch = (itemIndex == focusedIndex.value);
+        break;
       case TVMultiViewDanmakuMode.all:
-        return true;
+        shouldDispatch = true;
+        break;
+    }
+
+    if (shouldDispatch) {
+      // 多路混排时，给非主视角加上视角编号前缀，方便区分
+      String text = (danmakuMode.value == TVMultiViewDanmakuMode.all && items.length > 1)
+          ? "[${itemIndex + 1}] $message"
+          : message;
+      globalDanmakuController?.addDanmaku(DanmakuContentItem(
+        text,
+        color: color,
+      ));
     }
   }
 

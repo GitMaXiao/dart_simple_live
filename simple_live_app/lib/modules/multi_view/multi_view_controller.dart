@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:canvas_danmaku/canvas_danmaku.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -26,6 +27,12 @@ class MultiViewController extends GetxController {
   final RxBool isSoloAudioMode = true.obs; // 默认仅主焦点发声
   final RxBool isFullScreen = false.obs;
   final Rx<MultiViewDanmakuMode> danmakuMode = MultiViewDanmakuMode.primary.obs; // 默认开启主视角弹幕
+
+  DanmakuController? globalDanmakuController;
+
+  void initGlobalDanmakuController(DanmakuController c) {
+    globalDanmakuController = c;
+  }
 
   late final List<MultiViewItemController> items;
 
@@ -82,32 +89,52 @@ class MultiViewController extends GetxController {
 
   /// 切换弹幕显示模式
   void cycleDanmakuMode() {
+    globalDanmakuController?.clear();
     if (danmakuMode.value == MultiViewDanmakuMode.primary) {
       danmakuMode.value = MultiViewDanmakuMode.focused;
-      SmartDialog.showToast("弹幕模式: 仅当前焦点视角");
+      SmartDialog.showToast("全屏弹幕: 仅当前焦点视角");
     } else if (danmakuMode.value == MultiViewDanmakuMode.focused) {
       danmakuMode.value = MultiViewDanmakuMode.all;
-      SmartDialog.showToast("弹幕模式: 全部视角");
+      SmartDialog.showToast("全屏弹幕: 全部视角混排");
     } else if (danmakuMode.value == MultiViewDanmakuMode.all) {
       danmakuMode.value = MultiViewDanmakuMode.none;
-      SmartDialog.showToast("已关闭弹幕");
+      SmartDialog.showToast("已关闭全屏弹幕");
     } else {
       danmakuMode.value = MultiViewDanmakuMode.primary;
-      SmartDialog.showToast("弹幕模式: 仅主视角 (1)");
+      SmartDialog.showToast("全屏弹幕: 仅主视角 (1)");
     }
   }
 
-  /// 判断指定分屏是否应该显示弹幕
-  bool shouldShowDanmaku(int index) {
+  /// 分发来自各分屏的弹幕至全局全屏弹幕层
+  void dispatchDanmaku(int itemIndex, String message, Color color) {
+    if (danmakuMode.value == MultiViewDanmakuMode.none) return;
+    if (itemIndex < 0 || itemIndex >= items.length) return;
+    if (!items[itemIndex].showDanmaku.value) return;
+
+    bool shouldDispatch = false;
     switch (danmakuMode.value) {
       case MultiViewDanmakuMode.none:
-        return false;
+        shouldDispatch = false;
+        break;
       case MultiViewDanmakuMode.primary:
-        return index == 0;
+        shouldDispatch = (itemIndex == 0);
+        break;
       case MultiViewDanmakuMode.focused:
-        return index == focusedIndex.value;
+        shouldDispatch = (itemIndex == focusedIndex.value);
+        break;
       case MultiViewDanmakuMode.all:
-        return true;
+        shouldDispatch = true;
+        break;
+    }
+
+    if (shouldDispatch) {
+      String text = (danmakuMode.value == MultiViewDanmakuMode.all && items.length > 1)
+          ? "[${itemIndex + 1}] $message"
+          : message;
+      globalDanmakuController?.addDanmaku(DanmakuContentItem(
+        text,
+        color: color,
+      ));
     }
   }
 

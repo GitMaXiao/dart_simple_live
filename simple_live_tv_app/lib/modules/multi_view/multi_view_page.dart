@@ -6,6 +6,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:remixicon/remixicon.dart';
 import 'package:simple_live_tv_app/app/app_focus_node.dart';
 import 'package:simple_live_tv_app/app/app_style.dart';
+import 'package:simple_live_tv_app/app/controller/app_settings_controller.dart';
 import 'package:simple_live_tv_app/modules/multi_view/multi_view_controller.dart';
 import 'package:simple_live_tv_app/modules/multi_view/multi_view_item_controller.dart';
 import 'package:simple_live_tv_app/modules/multi_view/widgets/multi_view_action_dialog.dart';
@@ -20,105 +21,135 @@ class TVMultiViewPage extends GetView<TVMultiViewController> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0A0A0E),
-      body: Column(
+      body: Stack(
         children: [
-          // 顶部遥控器控制栏
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 28.w, vertical: 10.h),
-            decoration: BoxDecoration(
-              color: const Color(0xFF14141B),
-              border: Border(bottom: BorderSide(color: Colors.white.withAlpha(15), width: 1.w)),
-            ),
-            child: Row(
-              children: [
-                HighlightButton(
-                  focusNode: AppFocusNode(),
-                  iconData: Icons.arrow_back,
-                  text: "退出",
-                  onTap: () => Get.back(),
+          // 底层：分屏播放内容
+          Column(
+            children: [
+              // 顶部遥控器控制栏
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 28.w, vertical: 10.h),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF14141B),
+                  border: Border(bottom: BorderSide(color: Colors.white.withAlpha(15), width: 1.w)),
                 ),
-                AppStyle.hGap20,
-                // 页面标题徽章
-                Row(
-                  mainAxisSize: MainAxisSize.min,
+                child: Row(
                   children: [
-                    Container(
-                      padding: EdgeInsets.all(6.w),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Colors.amberAccent, Colors.orangeAccent],
-                        ),
-                        borderRadius: BorderRadius.circular(8.w),
-                      ),
-                      child: Icon(Remix.tv_2_line, color: Colors.black, size: 20.sp),
+                    HighlightButton(
+                      focusNode: AppFocusNode(),
+                      iconData: Icons.arrow_back,
+                      text: "退出",
+                      onTap: () => Get.back(),
                     ),
-                    AppStyle.hGap12,
-                    Text(
-                      "多屏同播 / 多视角",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 22.sp,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.5,
+                    AppStyle.hGap20,
+                    // 页面标题徽章
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(6.w),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Colors.amberAccent, Colors.orangeAccent],
+                            ),
+                            borderRadius: BorderRadius.circular(8.w),
+                          ),
+                          child: Icon(Remix.tv_2_line, color: Colors.black, size: 20.sp),
+                        ),
+                        AppStyle.hGap12,
+                        Text(
+                          "多屏同播 / 多视角",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 22.sp,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                    AppStyle.hGap20,
+                    // 操作提示胶囊
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withAlpha(15),
+                        borderRadius: BorderRadius.circular(6.w),
+                      ),
+                      child: Text(
+                        "按遥控器 OK 键呼出分屏菜单",
+                        style: TextStyle(color: Colors.amberAccent.withAlpha(200), fontSize: 13.sp),
+                      ),
+                    ),
+                    const Spacer(),
+                    // 布局切换
+                    Obx(
+                      () => HighlightButton(
+                        focusNode: AppFocusNode(),
+                        iconData: Remix.layout_grid_line,
+                        text: _getLayoutName(controller.layout.value),
+                        onTap: () => controller.cycleLayout(),
+                      ),
+                    ),
+                    AppStyle.hGap16,
+                    // 音频模式
+                    Obx(
+                      () => HighlightButton(
+                        focusNode: AppFocusNode(),
+                        iconData: controller.isSoloAudioMode.value
+                            ? Remix.volume_up_line
+                            : Remix.sound_module_line,
+                        text: controller.isSoloAudioMode.value ? "焦点发声" : "多路混音",
+                        selected: !controller.isSoloAudioMode.value,
+                        onTap: () => controller.toggleAudioMode(),
+                      ),
+                    ),
+                    AppStyle.hGap16,
+                    // 弹幕模式切换
+                    Obx(
+                      () => HighlightButton(
+                        focusNode: AppFocusNode(),
+                        iconData: controller.danmakuMode.value != TVMultiViewDanmakuMode.none
+                            ? Remix.chat_1_line
+                            : Remix.chat_off_line,
+                        text: _getDanmakuModeName(controller.danmakuMode.value),
+                        selected: controller.danmakuMode.value != TVMultiViewDanmakuMode.none,
+                        onTap: () => controller.cycleDanmakuMode(),
                       ),
                     ),
                   ],
                 ),
-                AppStyle.hGap20,
-                // 操作提示胶囊
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withAlpha(15),
-                    borderRadius: BorderRadius.circular(6.w),
-                  ),
-                  child: Text(
-                    "按遥控器 OK 键呼出分屏菜单",
-                    style: TextStyle(color: Colors.amberAccent.withAlpha(200), fontSize: 13.sp),
-                  ),
-                ),
-                const Spacer(),
-                // 布局切换
-                Obx(
-                  () => HighlightButton(
-                    focusNode: AppFocusNode(),
-                    iconData: Remix.layout_grid_line,
-                    text: _getLayoutName(controller.layout.value),
-                    onTap: () => controller.cycleLayout(),
-                  ),
-                ),
-                AppStyle.hGap16,
-                // 音频模式
-                Obx(
-                  () => HighlightButton(
-                    focusNode: AppFocusNode(),
-                    iconData: controller.isSoloAudioMode.value
-                        ? Remix.volume_up_line
-                        : Remix.sound_module_line,
-                    text: controller.isSoloAudioMode.value ? "焦点发声" : "多路混音",
-                    selected: !controller.isSoloAudioMode.value,
-                    onTap: () => controller.toggleAudioMode(),
-                  ),
-                ),
-                AppStyle.hGap16,
-                // 弹幕模式切换
-                Obx(
-                  () => HighlightButton(
-                    focusNode: AppFocusNode(),
-                    iconData: controller.danmakuMode.value != TVMultiViewDanmakuMode.none
-                        ? Remix.chat_1_line
-                        : Remix.chat_off_line,
-                    text: _getDanmakuModeName(controller.danmakuMode.value),
-                    selected: controller.danmakuMode.value != TVMultiViewDanmakuMode.none,
-                    onTap: () => controller.cycleDanmakuMode(),
-                  ),
-                ),
-              ],
-            ),
+              ),
+              // 分屏展示区
+              Expanded(
+                child: Obx(() => _buildLayout(context)),
+              ),
+            ],
           ),
-          // 分屏展示区
-          Expanded(
-            child: Obx(() => _buildLayout(context)),
+
+          // 顶层：全局跨全屏大屏弹幕层（不拦截任何遥控器事件）
+          Positioned.fill(
+            child: Obx(
+              () => Offstage(
+                offstage: controller.danmakuMode.value == TVMultiViewDanmakuMode.none,
+                child: IgnorePointer(
+                  child: DanmakuScreen(
+                    key: const Key("tv_multiview_global_danmaku"),
+                    createdController: controller.initGlobalDanmakuController,
+                    option: DanmakuOption(
+                      fontSize: AppSettingsController.instance.danmuSize.value.w > 0
+                          ? AppSettingsController.instance.danmuSize.value.w
+                          : 28.sp,
+                      area: AppSettingsController.instance.danmuArea.value,
+                      duration: AppSettingsController.instance.danmuSpeed.value.toInt() > 0
+                          ? AppSettingsController.instance.danmuSpeed.value.toInt()
+                          : 8,
+                      opacity: AppSettingsController.instance.danmuOpacity.value,
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ),
         ],
       ),
@@ -257,25 +288,6 @@ class TVMultiViewPage extends GetView<TVMultiViewController> {
                     )
                   else
                     _buildEmptySlot(index, isFocused),
-
-                  // 弹幕图层
-                  if (item.hasRoom.value)
-                    Obx(() {
-                      bool isVisible = controller.shouldShowDanmaku(index) && item.showDanmaku.value;
-                      return Offstage(
-                        offstage: !isVisible,
-                        child: DanmakuScreen(
-                          key: Key("danmaku_tv_item_${item.roomId ?? index}"),
-                          createdController: item.initDanmakuController,
-                          option: DanmakuOption(
-                            fontSize: (index == 0 && controller.layout.value == TVMultiViewLayout.three) ? 24.sp : 18.sp,
-                            area: 0.65,
-                            duration: 8,
-                            opacity: 0.85,
-                          ),
-                        ),
-                      );
-                    }),
 
                   // 加载状态
                   if (item.isLoading.value)

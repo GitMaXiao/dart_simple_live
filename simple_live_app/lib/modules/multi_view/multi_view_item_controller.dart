@@ -7,6 +7,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:simple_live_app/app/controller/app_settings_controller.dart';
 import 'package:simple_live_app/app/log.dart';
 import 'package:simple_live_app/app/sites.dart';
+import 'package:simple_live_app/modules/multi_view/multi_view_controller.dart';
 import 'package:simple_live_core/simple_live_core.dart';
 
 class MultiViewItemController {
@@ -184,10 +185,10 @@ class MultiViewItemController {
             messages.removeAt(0);
           }
           messages.add(msg);
-          danmakuController?.addDanmaku(DanmakuContentItem(
-            msg.message,
-            color: Color.fromARGB(255, msg.color.r, msg.color.g, msg.color.b),
-          ));
+          Color color = Color.fromARGB(255, msg.color.r, msg.color.g, msg.color.b);
+          if (Get.isRegistered<MultiViewController>()) {
+            Get.find<MultiViewController>().dispatchDanmaku(index, msg.message, color);
+          }
         }
       };
 

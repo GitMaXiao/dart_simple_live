@@ -8,6 +8,7 @@ import 'package:simple_live_core/simple_live_core.dart';
 import 'package:simple_live_tv_app/app/controller/app_settings_controller.dart';
 import 'package:simple_live_tv_app/app/log.dart';
 import 'package:simple_live_tv_app/app/sites.dart';
+import 'package:simple_live_tv_app/modules/multi_view/multi_view_controller.dart';
 
 class MultiViewItemController {
   final int index;
@@ -176,10 +177,10 @@ class MultiViewItemController {
             messages.removeAt(0);
           }
           messages.add(msg);
-          danmakuController?.addDanmaku(DanmakuContentItem(
-            msg.message,
-            color: Color.fromARGB(255, msg.color.r, msg.color.g, msg.color.b),
-          ));
+          Color color = Color.fromARGB(255, msg.color.r, msg.color.g, msg.color.b);
+          if (Get.isRegistered<TVMultiViewController>()) {
+            Get.find<TVMultiViewController>().dispatchDanmaku(index, msg.message, color);
+          }
         }
       };
 
