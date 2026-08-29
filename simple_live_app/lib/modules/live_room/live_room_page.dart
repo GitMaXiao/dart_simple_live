@@ -11,6 +11,7 @@ import 'package:simple_live_app/app/constant.dart';
 import 'package:simple_live_app/app/controller/app_settings_controller.dart';
 import 'package:simple_live_app/app/sites.dart';
 import 'package:simple_live_app/app/utils.dart';
+import 'package:simple_live_app/models/db/follow_user.dart';
 import 'package:simple_live_app/modules/live_room/live_room_controller.dart';
 import 'package:simple_live_app/modules/live_room/player/player_controls.dart';
 import 'package:simple_live_app/services/follow_service.dart';
@@ -189,13 +190,50 @@ class LiveRoomPage extends GetView<LiveRoomController> {
               AppStyle.hGap4,
               Obx(
                 () => controller.followed.value
-                    ? TextButton.icon(
-                        style: TextButton.styleFrom(
-                          textStyle: const TextStyle(fontSize: 14),
-                        ),
-                        onPressed: controller.removeFollowUser,
-                        icon: const Icon(Remix.heart_fill),
-                        label: const Text("取消关注"),
+                    ? Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          TextButton.icon(
+                            style: TextButton.styleFrom(
+                              textStyle: const TextStyle(fontSize: 14),
+                            ),
+                            onPressed: controller.removeFollowUser,
+                            icon: const Icon(Remix.heart_fill),
+                            label: const Text("取消关注"),
+                          ),
+                          Obx(() {
+                            final id =
+                                "${controller.site.id}_${controller.roomId}";
+                            final isNotify =
+                                FollowService.instance.isNotifyEnabled(id);
+                            return IconButton(
+                              tooltip: isNotify ? "开播提醒已开启" : "开播提醒已关闭",
+                              icon: Icon(
+                                isNotify
+                                    ? Remix.notification_fill
+                                    : Remix.notification_line,
+                                color: isNotify
+                                    ? Theme.of(context).colorScheme.primary
+                                    : Colors.grey,
+                                size: 20,
+                              ),
+                              onPressed: () {
+                                final user = FollowUser(
+                                  id: id,
+                                  siteId: controller.site.id,
+                                  roomId: controller.roomId,
+                                  userName:
+                                      controller.detail.value?.userName ?? "",
+                                  face:
+                                      controller.detail.value?.userAvatar ?? "",
+                                  addTime: DateTime.now(),
+                                  tag: "全部",
+                                );
+                                FollowService.instance.toggleNotify(user);
+                              },
+                            );
+                          }),
+                        ],
                       )
                     : TextButton.icon(
                         style: TextButton.styleFrom(

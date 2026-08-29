@@ -109,6 +109,7 @@ class FollowUserController extends BasePageController<FollowUser> {
       updateTag(tag);
     }
     await DBService.instance.followBox.delete(item.id);
+    FollowService.instance.removeNotify(item.id);
     refreshData();
   }
 

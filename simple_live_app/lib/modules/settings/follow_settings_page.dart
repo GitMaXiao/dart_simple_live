@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:simple_live_app/app/app_style.dart';
 import 'package:simple_live_app/app/controller/app_settings_controller.dart';
+import 'package:simple_live_app/app/utils.dart';
 import 'package:simple_live_app/services/follow_service.dart';
+import 'package:simple_live_app/services/notification_service.dart';
 import 'package:simple_live_app/widgets/settings/settings_action.dart';
 import 'package:simple_live_app/widgets/settings/settings_card.dart';
 import 'package:simple_live_app/widgets/settings/settings_switch.dart';
@@ -85,6 +87,69 @@ class FollowSettingsPage extends GetView<AppSettingsController> {
                     onChanged: (e) {
                       controller.setLiveNotificationEnable(e);
                     },
+                  ),
+                ),
+                Obx(
+                  () => Visibility(
+                    visible: controller.liveNotificationEnable.value,
+                    child: Column(
+                      children: [
+                        AppStyle.divider,
+                        SettingsSwitch(
+                          value: controller.autoEnableNotifyOnFollow.value,
+                          title: "关注主播时默认开启提醒",
+                          subtitle: "新关注主播时自动开启开播通知",
+                          onChanged: (e) {
+                            controller.setAutoEnableNotifyOnFollow(e);
+                          },
+                        ),
+                        AppStyle.divider,
+                        SettingsAction(
+                          title: "一键开启全部主播提醒",
+                          subtitle: "将当前关注列表中的所有主播全部开启开播提醒",
+                          onTap: () async {
+                            var confirm = await Utils.showAlertDialog(
+                              "确定要为关注列表中的全部主播开启开播提醒吗？",
+                              title: "一键开启提醒",
+                            );
+                            if (confirm) {
+                              FollowService.instance.enableAllNotify();
+                            }
+                          },
+                        ),
+                        AppStyle.divider,
+                        SettingsAction(
+                          title: "一键关闭全部主播提醒",
+                          subtitle: "将当前所有已开启提醒的主播全部关闭",
+                          onTap: () async {
+                            var confirm = await Utils.showAlertDialog(
+                              "确定要关闭所有关注主播的开播提醒吗？",
+                              title: "一键关闭提醒",
+                            );
+                            if (confirm) {
+                              FollowService.instance.disableAllNotify();
+                            }
+                          },
+                        ),
+                        AppStyle.divider,
+                        SettingsAction(
+                          title: "发送测试通知",
+                          subtitle: "测试手机系统通知渠道与权限是否正常运行",
+                          onTap: () {
+                            NotificationService.instance.showTestNotification();
+                          },
+                        ),
+                        AppStyle.divider,
+                        SettingsAction(
+                          title: "系统通知权限管理",
+                          subtitle: "前往系统设置管理应用的通知权限与横幅样式",
+                          onTap: () {
+                            NotificationService.instance
+                                .openNotificationSettings();
+                          },
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],

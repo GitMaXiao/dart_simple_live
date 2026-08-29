@@ -51,14 +51,24 @@ class FollowService extends GetxService {
   /// 开启开播提醒的主播ID集合
   final RxSet<String> notifyUserIds = <String>{}.obs;
 
+  /// 已经发送过开播提醒的主播ID集合（当前仍处于直播状态期间不再重复提醒）
+  final Set<String> _notifiedLivingAnchorIds = <String>{};
+
   /// 上一次的开播状态记录，用于差量提醒防抖
   final Map<String, bool> _lastLivingStatus = <String, bool>{};
+
+  /// 最近一次发送通知的时间戳记录（用于主播闪退/断流重连防抖）
+  final Map<String, DateTime> _lastNotifiedTime = <String, DateTime>{};
+
+  /// 是否为应用启动后的首次扫描基准（首次仅记录当前直播状态，不触发历史开播通知风暴）
+  bool _isInitialCheck = true;
 
   Timer? updateTimer;
 
   @override
   void onInit() {
     initNotifyUserIds();
+    initNotifiedLivingAnchorIds();
     subscription = EventBus.instance.listen(Constant.kUpdateFollow, (p0) {
       loadData(updateStatus: false);
     });
@@ -72,6 +82,19 @@ class FollowService extends GetxService {
     notifyUserIds.assignAll(rawList.map((e) => e.toString()));
   }
 
+  void initNotifiedLivingAnchorIds() {
+    var rawList = LocalStorageService.instance
+        .getValue(LocalStorageService.kNotifiedLiveAnchorIds, <dynamic>[]);
+    _notifiedLivingAnchorIds.addAll(rawList.map((e) => e.toString()));
+  }
+
+  Future<void> _saveNotifiedLivingAnchorIds() async {
+    await LocalStorageService.instance.setValue(
+      LocalStorageService.kNotifiedLiveAnchorIds,
+      _notifiedLivingAnchorIds.toList(),
+    );
+  }
+
   bool isNotifyEnabled(String id) {
     return notifyUserIds.contains(id);
   }
@@ -79,17 +102,76 @@ class FollowService extends GetxService {
   Future<void> toggleNotify(FollowUser user) async {
     if (notifyUserIds.contains(user.id)) {
       notifyUserIds.remove(user.id);
+      _notifiedLivingAnchorIds.remove(user.id);
+      await _saveNotifiedLivingAnchorIds();
       SmartDialog.showToast("已关闭 ${user.userName} 的开播提醒");
     } else {
       // 开启前请求通知权限
       await NotificationService.instance.requestPermission();
       notifyUserIds.add(user.id);
+      // 如果当前主播正在直播中，标记为已提醒/基准状态，避免开启瞬间被视为“刚开播”
+      if (user.liveStatus.value == 2) {
+        _lastLivingStatus[user.id] = true;
+        _lastNotifiedTime[user.id] = DateTime.now();
+        _notifiedLivingAnchorIds.add(user.id);
+        await _saveNotifiedLivingAnchorIds();
+      }
       SmartDialog.showToast("已开启 ${user.userName} 的开播提醒");
     }
     await LocalStorageService.instance.setValue(
       LocalStorageService.kNotifyFollowUsers,
       notifyUserIds.toList(),
     );
+  }
+
+  /// 一键开启所有关注主播的开播提醒
+  Future<void> enableAllNotify() async {
+    if (followList.isEmpty) {
+      SmartDialog.showToast("关注列表为空");
+      return;
+    }
+    await NotificationService.instance.requestPermission();
+    for (var user in followList) {
+      notifyUserIds.add(user.id);
+      if (user.liveStatus.value == 2) {
+        _lastLivingStatus[user.id] = true;
+        _lastNotifiedTime[user.id] = DateTime.now();
+        _notifiedLivingAnchorIds.add(user.id);
+      }
+    }
+    await _saveNotifiedLivingAnchorIds();
+    await LocalStorageService.instance.setValue(
+      LocalStorageService.kNotifyFollowUsers,
+      notifyUserIds.toList(),
+    );
+    SmartDialog.showToast("已开启全部关注主播开播提醒 (${notifyUserIds.length}位)");
+  }
+
+  /// 一键关闭所有关注主播的开播提醒
+  Future<void> disableAllNotify() async {
+    notifyUserIds.clear();
+    _notifiedLivingAnchorIds.clear();
+    await _saveNotifiedLivingAnchorIds();
+    await LocalStorageService.instance.setValue(
+      LocalStorageService.kNotifyFollowUsers,
+      notifyUserIds.toList(),
+    );
+    SmartDialog.showToast("已关闭全部关注主播开播提醒");
+  }
+
+  /// 移除指定主播的提醒记录
+  Future<void> removeNotify(String id) async {
+    if (notifyUserIds.remove(id)) {
+      await LocalStorageService.instance.setValue(
+        LocalStorageService.kNotifyFollowUsers,
+        notifyUserIds.toList(),
+      );
+    }
+    _lastLivingStatus.remove(id);
+    _lastNotifiedTime.remove(id);
+    if (_notifiedLivingAnchorIds.remove(id)) {
+      await _saveNotifiedLivingAnchorIds();
+    }
   }
 
   // 添加标签
@@ -268,25 +350,38 @@ class FollowService extends GetxService {
         var detail = await site.liveSite.getRoomDetail(roomId: item.roomId);
         item.liveStartTime = detail.showTime;
 
-        // 检查是否开启了开播提醒且之前未开播（差量检测防抖）
+        // 检查是否开启了开播提醒
         if (AppSettingsController.instance.liveNotificationEnable.value &&
             isNotifyEnabled(item.id)) {
-          if (_lastLivingStatus[item.id] != true) {
-            _lastLivingStatus[item.id] = true;
-            NotificationService.instance.showLiveNotification(
-              siteId: item.siteId,
-              roomId: item.roomId,
-              userName: item.userName,
-              title: detail.title,
-              platformName: site.name,
-            );
+          // 已经提醒过的，且还在直播中，不需要再次提醒
+          if (!_notifiedLivingAnchorIds.contains(item.id)) {
+            // 仅在非首次初始化检查且状态真正由未开播变为开播时触发通知（避免冷启动轰炸）
+            if (!_isInitialCheck && _lastLivingStatus[item.id] != true) {
+              NotificationService.instance.showLiveNotification(
+                siteId: item.siteId,
+                roomId: item.roomId,
+                userName: item.userName,
+                title: detail.title,
+                avatarUrl: item.face,
+                platformName: site.name,
+              );
+            }
+            // 标记本场直播已记录/已通知
+            _notifiedLivingAnchorIds.add(item.id);
+            _saveNotifiedLivingAnchorIds();
           }
+          _lastLivingStatus[item.id] = true;
         } else {
           _lastLivingStatus[item.id] = true;
+          _notifiedLivingAnchorIds.add(item.id);
         }
       } else {
         item.liveStartTime = null;
         _lastLivingStatus[item.id] = false;
+        // 主播已确认下播，清除本场开播提醒记录，下次再开播时才会重新提醒
+        if (_notifiedLivingAnchorIds.remove(item.id)) {
+          _saveNotifiedLivingAnchorIds();
+        }
       }
     } catch (e) {
       Log.logPrint(e);
@@ -295,6 +390,7 @@ class FollowService extends GetxService {
     } finally {
       updatedCount++;
       if (updatedCount >= followList.length) {
+        _isInitialCheck = false;
         filterData();
         updating.value = false;
       }

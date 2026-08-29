@@ -171,8 +171,14 @@ class LocalStorageService extends GetxService {
   /// 开播通知开启
   static const String kLiveNotificationEnable = "LiveNotificationEnable";
 
+  /// 关注主播时默认开启开播提醒
+  static const String kAutoEnableNotifyOnFollow = "AutoEnableNotifyOnFollow";
+
   /// 开启开播提醒的主播ID列表
   static const String kNotifyFollowUsers = "NotifyFollowUsers";
+
+  /// 已经发送过本场开播提醒的主播ID列表（持久化，仍在直播中不再重复提醒）
+  static const String kNotifiedLiveAnchorIds = "NotifiedLiveAnchorIds";
 
   late Box settingsBox;
   late Box<String> shieldBox;

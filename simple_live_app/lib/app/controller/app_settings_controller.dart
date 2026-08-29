@@ -156,6 +156,9 @@ class AppSettingsController extends GetxController {
     liveNotificationEnable.value = LocalStorageService.instance
         .getValue(LocalStorageService.kLiveNotificationEnable, true);
 
+    autoEnableNotifyOnFollow.value = LocalStorageService.instance
+        .getValue(LocalStorageService.kAutoEnableNotifyOnFollow, true);
+
     initSiteSort();
     initHomeSort();
 
@@ -540,5 +543,12 @@ class AppSettingsController extends GetxController {
     liveNotificationEnable.value = e;
     LocalStorageService.instance
         .setValue(LocalStorageService.kLiveNotificationEnable, e);
+  }
+
+  var autoEnableNotifyOnFollow = true.obs;
+  void setAutoEnableNotifyOnFollow(bool e) {
+    autoEnableNotifyOnFollow.value = e;
+    LocalStorageService.instance
+        .setValue(LocalStorageService.kAutoEnableNotifyOnFollow, e);
   }
 }

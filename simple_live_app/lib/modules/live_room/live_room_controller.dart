@@ -23,6 +23,7 @@ import 'package:simple_live_app/modules/settings/danmu_settings_page.dart';
 import 'package:simple_live_app/services/db_service.dart';
 import 'package:simple_live_app/services/follow_service.dart';
 import 'package:simple_live_app/services/live_audio_service.dart';
+import 'package:simple_live_app/services/local_storage_service.dart';
 import 'package:simple_live_app/widgets/desktop_refresh_button.dart';
 import 'package:simple_live_app/widgets/follow_user_item.dart';
 import 'package:simple_live_core/simple_live_core.dart';
@@ -611,6 +612,14 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
       ),
     );
     followed.value = true;
+    // 如果设置了默认开启开播提醒，自动加入提醒集合
+    if (AppSettingsController.instance.autoEnableNotifyOnFollow.value) {
+      FollowService.instance.notifyUserIds.add(id);
+      LocalStorageService.instance.setValue(
+        LocalStorageService.kNotifyFollowUsers,
+        FollowService.instance.notifyUserIds.toList(),
+      );
+    }
     EventBus.instance.emit(Constant.kUpdateFollow, id);
   }
 
@@ -625,6 +634,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
 
     var id = "${site.id}_$roomId";
     DBService.instance.deleteFollow(id);
+    FollowService.instance.removeNotify(id);
     followed.value = false;
     EventBus.instance.emit(Constant.kUpdateFollow, id);
   }
