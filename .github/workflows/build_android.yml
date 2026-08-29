@@ -34,8 +34,12 @@ on:
       - main
 
 jobs:
-  build-android:
-    name: Build Android APKs
+  # ==========================================
+  # 任务 1: 手机 / 平板端独立并行构建
+  # ==========================================
+  build-phone:
+    name: Build Phone APKs
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.build_mobile }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -63,8 +67,94 @@ jobs:
           flutter --version
           java -version
 
-      # 如果仓库配置了签名 Secrets，则生成签名配置 key.properties
-      - name: 配置签名证书 (可选)
+      - name: 配置手机端签名证书 (可选)
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 --decode > simple_live_app/android/keystore.jks
+            echo "storeFile=keystore.jks" > simple_live_app/android/key.properties
+            echo "storePassword=$STORE_PASSWORD" >> simple_live_app/android/key.properties
+            echo "keyPassword=$KEY_PASSWORD" >> simple_live_app/android/key.properties
+            echo "keyAlias=$KEY_ALIAS" >> simple_live_app/android/key.properties
+            echo "已配置手机端 Release 签名"
+          else
+            echo "未配置手机端签名 Secrets，自动使用 Debug 签名打包"
+          fi
+
+      - name: 获取手机端依赖
+        run: |
+          cd simple_live_app
+          flutter pub get
+
+      - name: 构建手机端通用 APK (Universal)
+        run: |
+          cd simple_live_app
+          flutter build apk --release
+
+      - name: 构建手机端分架构 APK (Split per ABI)
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.split_per_abi }}
+        run: |
+          cd simple_live_app
+          flutter build apk --release --split-per-abi
+
+      - name: 整理手机端 APK 产物
+        run: |
+          mkdir -p output_phone_apks
+          if [ -d "simple_live_app/build/app/outputs/flutter-apk" ]; then
+            find simple_live_app/build/app/outputs/flutter-apk/ -name "*.apk" -exec cp {} output_phone_apks/ \;
+            [ -f "output_phone_apks/app-release.apk" ] && mv output_phone_apks/app-release.apk output_phone_apks/simple_live_app-universal-release.apk || true
+            [ -f "output_phone_apks/app-arm64-v8a-release.apk" ] && mv output_phone_apks/app-arm64-v8a-release.apk output_phone_apks/simple_live_app-arm64-v8a-release.apk || true
+            [ -f "output_phone_apks/app-armeabi-v7a-release.apk" ] && mv output_phone_apks/app-armeabi-v7a-release.apk output_phone_apks/simple_live_app-armeabi-v7a-release.apk || true
+            [ -f "output_phone_apks/app-x86_64-release.apk" ] && mv output_phone_apks/app-x86_64-release.apk output_phone_apks/simple_live_app-x86_64-release.apk || true
+          fi
+          echo "=== 手机端 APK 列表 ==="
+          ls -lh output_phone_apks/
+
+      - name: 上传手机端 APK 产物 (Artifacts)
+        uses: actions/upload-artifact@v4
+        with:
+          name: SimpleLive-Phone-APKs
+          path: output_phone_apks/*.apk
+          retention-days: 14
+
+  # ==========================================
+  # 任务 2: 电视 TV 端独立并行构建
+  # ==========================================
+  build-tv:
+    name: Build TV APKs
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.build_tv }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 配置 JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: 配置 Flutter 环境
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.38.x'
+          cache: true
+
+      - name: 检查环境版本并启用 Native Assets 特性
+        run: |
+          flutter config --enable-native-assets
+          flutter --version
+          java -version
+
+      - name: 配置 TV 端签名证书 (可选)
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
@@ -75,113 +165,88 @@ jobs:
           TV_KEY_PASSWORD: ${{ secrets.TV_KEY_PASSWORD }}
           TV_KEY_ALIAS: ${{ secrets.TV_KEY_ALIAS }}
         run: |
-          # 移动端签名配置
-          if [ -n "$KEYSTORE_BASE64" ]; then
-            echo "$KEYSTORE_BASE64" | base64 --decode > simple_live_app/android/keystore.jks
-            echo "storeFile=keystore.jks" > simple_live_app/android/key.properties
-            echo "storePassword=$STORE_PASSWORD" >> simple_live_app/android/key.properties
-            echo "keyPassword=$KEY_PASSWORD" >> simple_live_app/android/key.properties
-            echo "keyAlias=$KEY_ALIAS" >> simple_live_app/android/key.properties
-            echo "已配置移动端 Release 签名"
-          else
-            echo "未配置移动端签名 Secrets，自动使用 Debug 签名打包"
-          fi
-
-          # TV 端签名配置
           if [ -n "$TV_KEYSTORE_BASE64" ]; then
             echo "$TV_KEYSTORE_BASE64" | base64 --decode > simple_live_tv_app/android/keystore.jks
             echo "storeFile=keystore.jks" > simple_live_tv_app/android/key.properties
             echo "storePassword=$TV_STORE_PASSWORD" >> simple_live_tv_app/android/key.properties
             echo "keyPassword=$TV_KEY_PASSWORD" >> simple_live_tv_app/android/key.properties
             echo "keyAlias=$TV_KEY_ALIAS" >> simple_live_tv_app/android/key.properties
-            echo "已配置 TV 端 Release 签名"
+            echo "已配置 TV 专属 Release 签名"
           elif [ -n "$KEYSTORE_BASE64" ]; then
             echo "$KEYSTORE_BASE64" | base64 --decode > simple_live_tv_app/android/keystore.jks
             echo "storeFile=keystore.jks" > simple_live_tv_app/android/key.properties
             echo "storePassword=$STORE_PASSWORD" >> simple_live_tv_app/android/key.properties
             echo "keyPassword=$KEY_PASSWORD" >> simple_live_tv_app/android/key.properties
             echo "keyAlias=$KEY_ALIAS" >> simple_live_tv_app/android/key.properties
-            echo "TV 端复用移动端 Release 签名"
+            echo "TV 端复用通用 Release 签名"
+          else
+            echo "未配置 TV 签名 Secrets，自动使用 Debug 签名打包"
           fi
 
-      # ----------------- 构建移动端 -----------------
-      - name: 获取移动端依赖
-        if: ${{ github.event_name != 'workflow_dispatch' || inputs.build_mobile }}
-        run: |
-          cd simple_live_app
-          flutter pub get
-
-      - name: 构建移动端通用 APK (Universal)
-        if: ${{ github.event_name != 'workflow_dispatch' || inputs.build_mobile }}
-        run: |
-          cd simple_live_app
-          flutter build apk --release
-
-      - name: 构建移动端架构分包 APK (Split per ABI)
-        if: ${{ github.event_name != 'workflow_dispatch' || (inputs.build_mobile && inputs.split_per_abi) }}
-        run: |
-          cd simple_live_app
-          flutter build apk --release --split-per-abi
-
-      # ----------------- 构建 TV 端 -----------------
       - name: 获取 TV 端依赖
-        if: ${{ github.event_name != 'workflow_dispatch' || inputs.build_tv }}
         run: |
           cd simple_live_tv_app
           flutter pub get
 
-      - name: 构建 TV 端通用 APK
-        if: ${{ github.event_name != 'workflow_dispatch' || inputs.build_tv }}
+      - name: 构建 TV 端通用 APK (Universal)
         run: |
           cd simple_live_tv_app
           flutter build apk --release
 
-      - name: 构建 TV 端架构分包 APK
-        if: ${{ github.event_name != 'workflow_dispatch' || (inputs.build_tv && inputs.split_per_abi) }}
+      - name: 构建 TV 端分架构 APK (Split per ABI)
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.split_per_abi }}
         run: |
           cd simple_live_tv_app
           flutter build apk --release --split-per-abi
 
-      # ----------------- 整理产物 -----------------
-      - name: 整理与归档产物
+      - name: 整理 TV 端 APK 产物
         run: |
-          mkdir -p output_apks
-
-          # 移动端产物
-          if [ -d "simple_live_app/build/app/outputs/flutter-apk" ]; then
-            find simple_live_app/build/app/outputs/flutter-apk/ -name "*.apk" -exec cp {} output_apks/ \;
-            # 重命名全量包便于区分
-            [ -f "output_apks/app-release.apk" ] && mv output_apks/app-release.apk output_apks/simple_live_app-universal-release.apk || true
-            [ -f "output_apks/app-arm64-v8a-release.apk" ] && mv output_apks/app-arm64-v8a-release.apk output_apks/simple_live_app-arm64-v8a-release.apk || true
-            [ -f "output_apks/app-armeabi-v7a-release.apk" ] && mv output_apks/app-armeabi-v7a-release.apk output_apks/simple_live_app-armeabi-v7a-release.apk || true
-            [ -f "output_apks/app-x86_64-release.apk" ] && mv output_apks/app-x86_64-release.apk output_apks/simple_live_app-x86_64-release.apk || true
-          fi
-
-          # TV 端产物
+          mkdir -p output_tv_apks
           if [ -d "simple_live_tv_app/build/app/outputs/flutter-apk" ]; then
-            [ -f "simple_live_tv_app/build/app/outputs/flutter-apk/app-release.apk" ] && cp simple_live_tv_app/build/app/outputs/flutter-apk/app-release.apk output_apks/simple_live_tv-universal-release.apk || true
-            [ -f "simple_live_tv_app/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk" ] && cp simple_live_tv_app/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk output_apks/simple_live_tv-arm64-v8a-release.apk || true
-            [ -f "simple_live_tv_app/build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk" ] && cp simple_live_tv_app/build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk output_apks/simple_live_tv-armeabi-v7a-release.apk || true
-            [ -f "simple_live_tv_app/build/app/outputs/flutter-apk/app-x86_64-release.apk" ] && cp simple_live_tv_app/build/app/outputs/flutter-apk/app-x86_64-release.apk output_apks/simple_live_tv-x86_64-release.apk || true
+            find simple_live_tv_app/build/app/outputs/flutter-apk/ -name "*.apk" -exec cp {} output_tv_apks/ \;
+            [ -f "output_tv_apks/app-release.apk" ] && mv output_tv_apks/app-release.apk output_tv_apks/simple_live_tv-universal-release.apk || true
+            [ -f "output_tv_apks/app-arm64-v8a-release.apk" ] && mv output_tv_apks/app-arm64-v8a-release.apk output_tv_apks/simple_live_tv-arm64-v8a-release.apk || true
+            [ -f "output_tv_apks/app-armeabi-v7a-release.apk" ] && mv output_tv_apks/app-armeabi-v7a-release.apk output_tv_apks/simple_live_tv-armeabi-v7a-release.apk || true
+            [ -f "output_tv_apks/app-x86_64-release.apk" ] && mv output_tv_apks/app-x86_64-release.apk output_tv_apks/simple_live_tv-x86_64-release.apk || true
           fi
+          echo "=== TV 端 APK 列表 ==="
+          ls -lh output_tv_apks/
 
-          echo "=== 打包完成，输出文件列表 ==="
-          ls -lh output_apks/
-
-      - name: 上传 APK 产物 (Artifacts)
+      - name: 上传 TV 端 APK 产物 (Artifacts)
         uses: actions/upload-artifact@v4
         with:
-          name: SimpleLive-Android-APKs
-          path: output_apks/*.apk
+          name: SimpleLive-TV-APKs
+          path: output_tv_apks/*.apk
           retention-days: 14
 
-      # 如果是 Tag 触发，自动发布到 GitHub Release
+  # ==========================================
+  # 任务 3: 发布 Release (仅在 Tag 触发时聚合发布)
+  # ==========================================
+  release:
+    name: Publish GitHub Release
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [build-phone, build-tv]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: 下载手机端产物
+        uses: actions/download-artifact@v4
+        with:
+          name: SimpleLive-Phone-APKs
+          path: release_apks/
+
+      - name: 下载 TV 端产物
+        uses: actions/download-artifact@v4
+        with:
+          name: SimpleLive-TV-APKs
+          path: release_apks/
+
       - name: 发布至 GitHub Releases
-        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: output_apks/*.apk
+          files: release_apks/*.apk
           draft: false
           prerelease: false
           generate_release_notes: true
-
