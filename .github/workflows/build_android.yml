@@ -58,8 +58,9 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: 检查环境版本
+      - name: 检查环境版本并启用 Native Assets 特性
         run: |
+          flutter config --enable-native-assets
           flutter --version
           java -version
 
