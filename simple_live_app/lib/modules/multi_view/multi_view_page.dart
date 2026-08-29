@@ -450,58 +450,118 @@ class MultiViewPage extends GetView<MultiViewController> {
   }
 
   void _showLayoutSheet(BuildContext context) {
-    Get.bottomSheet(
-      SafeArea(
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          decoration: BoxDecoration(
-            color: Theme.of(context).scaffoldBackgroundColor,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+    bool isLand = controller.isFullScreen.value ||
+        MediaQuery.of(context).orientation == Orientation.landscape;
+
+    Widget content = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
             children: [
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Row(
-                  children: [
-                    Icon(Remix.layout_grid_line, size: 18),
-                    AppStyle.hGap8,
-                    Text(
-                      "切换分屏布局",
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                    ),
-                  ],
+              const Icon(Remix.layout_grid_line, size: 18),
+              AppStyle.hGap8,
+              const Text(
+                "切换分屏布局",
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              if (isLand) ...[
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Remix.close_line, size: 18),
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => Get.back(),
                 ),
-              ),
-              const Divider(),
-              _buildLayoutOption(
-                context,
-                layout: MultiViewLayout.two,
-                title: "2 分屏 (双画面)",
-                subtitle: "左右或上下并排展示 2 个直播视角",
-                icon: Remix.layout_column_line,
-              ),
-              _buildLayoutOption(
-                context,
-                layout: MultiViewLayout.three,
-                title: "3 分屏 (1主+2副)",
-                subtitle: "大主屏居左/居上，2个小副屏居侧",
-                icon: Remix.layout_masonry_line,
-              ),
-              _buildLayoutOption(
-                context,
-                layout: MultiViewLayout.four,
-                title: "4 宫格分屏",
-                subtitle: "4个直播间等比例四分屏同播",
-                icon: Remix.layout_grid_line,
-              ),
+              ],
             ],
           ),
         ),
-      ),
+        const Divider(height: 1),
+        _buildLayoutOption(
+          context,
+          layout: MultiViewLayout.two,
+          title: "2 分屏 (双画面)",
+          subtitle: "左右并排展示 2 个直播视角",
+          icon: Remix.layout_column_line,
+        ),
+        _buildLayoutOption(
+          context,
+          layout: MultiViewLayout.three,
+          title: "3 分屏 (1主+2副)",
+          subtitle: "大主屏居左，2个小副屏居侧",
+          icon: Remix.layout_masonry_line,
+        ),
+        _buildLayoutOption(
+          context,
+          layout: MultiViewLayout.four,
+          title: "4 宫格分屏",
+          subtitle: "4个直播间等比例四分屏同播",
+          icon: Remix.layout_grid_line,
+        ),
+      ],
     );
+
+    if (isLand) {
+      Get.generalDialog(
+        barrierDismissible: true,
+        barrierLabel: "切换布局",
+        barrierColor: Colors.black54,
+        transitionDuration: const Duration(milliseconds: 250),
+        pageBuilder: (dialogContext, anim1, anim2) {
+          return Align(
+            alignment: Alignment.centerRight,
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                width: 320,
+                height: double.infinity,
+                decoration: BoxDecoration(
+                  color: Theme.of(dialogContext).scaffoldBackgroundColor,
+                  borderRadius:
+                      const BorderRadius.horizontal(left: Radius.circular(20)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withAlpha(140),
+                      blurRadius: 24,
+                    ),
+                  ],
+                ),
+                child: SafeArea(
+                  left: false,
+                  child: SingleChildScrollView(child: content),
+                ),
+              ),
+            ),
+          );
+        },
+        transitionBuilder: (context, anim, secondaryAnim, child) {
+          return SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(1, 0),
+              end: Offset.zero,
+            ).animate(
+                CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
+            child: child,
+          );
+        },
+      );
+    } else {
+      Get.bottomSheet(
+        SafeArea(
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            decoration: BoxDecoration(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: content,
+          ),
+        ),
+      );
+    }
   }
 
   Widget _buildLayoutOption(
@@ -1094,48 +1154,118 @@ class MultiViewPage extends GetView<MultiViewController> {
   }
 
   void _showQualitySheet(BuildContext context, MultiViewItemController item) {
-    Get.bottomSheet(
-      SafeArea(
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          decoration: BoxDecoration(
-            color: Theme.of(context).scaffoldBackgroundColor,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+    bool isLand = controller.isFullScreen.value ||
+        MediaQuery.of(context).orientation == Orientation.landscape;
+
+    Widget content = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
             children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              const Icon(Remix.hd_line, color: Colors.blueAccent, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
                 child: Text(
-                  "选择清晰度 (${item.detail.value?.userName ?? '分屏'})",
+                  "画质选择 - ${item.detail.value?.userName ?? '分屏 ${item.index + 1}'}",
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const Divider(),
-              ...List.generate(item.qualities.length, (qI) {
-                var q = item.qualities[qI];
-                bool isCurrent = item.currentQualityIndex.value == qI;
-                return ListTile(
-                  title: Text(
-                    q.quality,
-                    style: TextStyle(
-                      color: isCurrent ? Colors.blueAccent : null,
-                      fontWeight: isCurrent ? FontWeight.bold : null,
-                    ),
-                  ),
-                  trailing: isCurrent ? const Icon(Remix.check_line, color: Colors.blueAccent) : null,
-                  onTap: () {
-                    item.switchQuality(qI);
-                    Get.back();
-                  },
-                );
-              }),
+              if (isLand)
+                IconButton(
+                  icon: const Icon(Remix.close_line, size: 18),
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => Get.back(),
+                ),
             ],
           ),
         ),
-      ),
+        const Divider(height: 1),
+        ...List.generate(item.qualities.length, (qI) {
+          var q = item.qualities[qI];
+          bool isCurrent = item.currentQualityIndex.value == qI;
+          return ListTile(
+            dense: isLand,
+            title: Text(
+              q.quality,
+              style: TextStyle(
+                color: isCurrent ? Colors.blueAccent : null,
+                fontWeight: isCurrent ? FontWeight.bold : null,
+              ),
+            ),
+            trailing: isCurrent ? const Icon(Remix.check_line, color: Colors.blueAccent) : null,
+            onTap: () {
+              item.switchQuality(qI);
+              Get.back();
+              SmartDialog.showToast("已切换清晰度为: ${q.quality}");
+            },
+          );
+        }),
+      ],
     );
+
+    if (isLand) {
+      Get.generalDialog(
+        barrierDismissible: true,
+        barrierLabel: "清晰度选择",
+        barrierColor: Colors.black54,
+        transitionDuration: const Duration(milliseconds: 200),
+        pageBuilder: (dialogContext, anim1, anim2) {
+          return Align(
+            alignment: Alignment.centerRight,
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                width: 280,
+                height: double.infinity,
+                decoration: BoxDecoration(
+                  color: Theme.of(dialogContext).scaffoldBackgroundColor,
+                  borderRadius:
+                      const BorderRadius.horizontal(left: Radius.circular(16)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withAlpha(140),
+                      blurRadius: 24,
+                    ),
+                  ],
+                ),
+                child: SafeArea(
+                  left: false,
+                  child: SingleChildScrollView(child: content),
+                ),
+              ),
+            ),
+          );
+        },
+        transitionBuilder: (context, anim, secondaryAnim, child) {
+          return SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(1, 0),
+              end: Offset.zero,
+            ).animate(
+                CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
+            child: child,
+          );
+        },
+      );
+    } else {
+      Get.bottomSheet(
+        SafeArea(
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            decoration: BoxDecoration(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(16)),
+            ),
+            child: content,
+          ),
+        ),
+      );
+    }
   }
 }

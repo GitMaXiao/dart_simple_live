@@ -213,7 +213,7 @@ class MultiViewController extends GetxController {
 
   /// 选择并添加/替换直播间
   Future<void> selectRoomForItem(int index) async {
-    var result = await MultiViewSelectDialog.show();
+    var result = await MultiViewSelectDialog.show(isLandscape: isFullScreen.value);
     if (result != null) {
       await items[index].loadRoom(result.site, result.roomId);
       if (isSoloAudioMode.value) {

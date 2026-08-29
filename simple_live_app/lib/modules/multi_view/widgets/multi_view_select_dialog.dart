@@ -31,12 +31,70 @@ class MultiViewSelectResult {
 class MultiViewSelectDialog extends StatelessWidget {
   const MultiViewSelectDialog({super.key});
 
-  static Future<MultiViewSelectResult?> show() async {
-    return await Get.bottomSheet<MultiViewSelectResult?>(
-      const MultiViewSelectDialog(),
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-    );
+  static Future<MultiViewSelectResult?> show({bool isLandscape = false}) async {
+    final context = Get.context;
+    final isLand = isLandscape ||
+        (context != null &&
+            MediaQuery.of(context).orientation == Orientation.landscape);
+
+    if (isLand) {
+      // 横屏全屏模式：以右侧滑出抽屉面板形式弹出
+      return await Get.generalDialog<MultiViewSelectResult?>(
+        barrierDismissible: true,
+        barrierLabel: "选择分屏直播间",
+        barrierColor: Colors.black54,
+        transitionDuration: const Duration(milliseconds: 250),
+        pageBuilder: (dialogContext, anim1, anim2) {
+          final double panelWidth =
+              (MediaQuery.of(dialogContext).size.width * 0.58).clamp(380.0, 520.0);
+          return Align(
+            alignment: Alignment.centerRight,
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                width: panelWidth,
+                height: double.infinity,
+                decoration: BoxDecoration(
+                  color: Theme.of(dialogContext).scaffoldBackgroundColor,
+                  borderRadius:
+                      const BorderRadius.horizontal(left: Radius.circular(20)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withAlpha(140),
+                      blurRadius: 24,
+                    ),
+                  ],
+                ),
+                child: const SafeArea(
+                  left: false,
+                  child: MultiViewSelectSection(
+                    showHeader: true,
+                    isBottomSheet: false,
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+        transitionBuilder: (context, anim, secondaryAnim, child) {
+          return SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(1, 0),
+              end: Offset.zero,
+            ).animate(
+                CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
+            child: child,
+          );
+        },
+      );
+    } else {
+      // 竖屏模式：从底部滑出
+      return await Get.bottomSheet<MultiViewSelectResult?>(
+        const MultiViewSelectDialog(),
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+      );
+    }
   }
 
   @override
