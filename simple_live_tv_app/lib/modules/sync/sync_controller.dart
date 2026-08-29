@@ -36,6 +36,9 @@ class SyncController extends BaseController {
   final backFocusNode = AppFocusNode();
   final remoteRetryFocusNode = AppFocusNode();
   final localRetryFocusNode = AppFocusNode();
+  final sendAllFocusNode = AppFocusNode();
+  final sendFollowFocusNode = AppFocusNode();
+  final sendHistoryFocusNode = AppFocusNode();
 
   @override
   void onInit() {
@@ -126,6 +129,8 @@ class SyncController extends BaseController {
     });
   }
 
+  // ===================== 接收远端同步数据 =====================
+
   void onReceiveFavorite(bool overlay, String data) async {
     try {
       var jsonBody = json.decode(data);
@@ -154,7 +159,6 @@ class SyncController extends BaseController {
         var history = History.fromJson(item);
         if (DBService.instance.historyBox.containsKey(history.id)) {
           var old = DBService.instance.historyBox.get(history.id);
-          //如果本地的更新时间比较新，就不更新
           if (old!.updateTime.isAfter(history.updateTime)) {
             continue;
           }
@@ -195,6 +199,127 @@ class SyncController extends BaseController {
     } catch (e) {
       SmartDialog.showToast("同步失败:$e");
       Log.logPrint(e);
+    }
+  }
+
+  // ===================== 从 TV 端向房间/手机端发送数据 =====================
+
+  /// 发送 TV 关注列表给房间内的手机
+  Future<void> sendFollowToRoom({bool overlay = false}) async {
+    if (roomUsers.length <= 1) {
+      SmartDialog.showToast("无手机设备连接");
+      return;
+    }
+    try {
+      SmartDialog.showLoading(msg: "正在发送关注列表...");
+      var follows = DBService.instance.followBox.values.map((e) => e.toJson()).toList();
+      var data = json.encode(follows);
+      var resp = await signalR.sendContent(
+        roomName: currentRoomId.value,
+        action: "SendFavorite",
+        overlay: overlay,
+        content: data,
+      );
+      if (resp.isSuccess) {
+        SmartDialog.showToast("已发送 TV 端关注列表至手机");
+      } else {
+        SmartDialog.showToast("发送失败: ${resp.message}");
+      }
+    } catch (e) {
+      SmartDialog.showToast("发送失败: $e");
+    } finally {
+      SmartDialog.dismiss();
+    }
+  }
+
+  /// 发送 TV 播放历史给房间内的手机
+  Future<void> sendHistoryToRoom({bool overlay = false}) async {
+    if (roomUsers.length <= 1) {
+      SmartDialog.showToast("无手机设备连接");
+      return;
+    }
+    try {
+      SmartDialog.showLoading(msg: "正在发送历史记录...");
+      var histories = DBService.instance.historyBox.values.map((e) => e.toJson()).toList();
+      var data = json.encode(histories);
+      var resp = await signalR.sendContent(
+        roomName: currentRoomId.value,
+        action: "SendHistory",
+        overlay: overlay,
+        content: data,
+      );
+      if (resp.isSuccess) {
+        SmartDialog.showToast("已发送 TV 端历史记录至手机");
+      } else {
+        SmartDialog.showToast("发送失败: ${resp.message}");
+      }
+    } catch (e) {
+      SmartDialog.showToast("发送失败: $e");
+    } finally {
+      SmartDialog.dismiss();
+    }
+  }
+
+  /// 一键将 TV 端全部数据（关注、历史、屏蔽词、B站账号）同步给手机
+  Future<void> sendAllToRoom() async {
+    if (roomUsers.length <= 1) {
+      SmartDialog.showToast("暂无手机设备连接至房间");
+      return;
+    }
+    try {
+      SmartDialog.showLoading(msg: "正在同步全量数据至手机...");
+      
+      // 1. 发送关注
+      var follows = DBService.instance.followBox.values.map((e) => e.toJson()).toList();
+      if (follows.isNotEmpty) {
+        await signalR.sendContent(
+          roomName: currentRoomId.value,
+          action: "SendFavorite",
+          overlay: false,
+          content: json.encode(follows),
+        );
+      }
+
+      // 2. 发送历史
+      var histories = DBService.instance.historyBox.values.map((e) => e.toJson()).toList();
+      if (histories.isNotEmpty) {
+        await signalR.sendContent(
+          roomName: currentRoomId.value,
+          action: "SendHistory",
+          overlay: false,
+          content: json.encode(histories),
+        );
+      }
+
+      // 3. 发送屏蔽词
+      var words = AppSettingsController.instance.shieldList.toList();
+      if (words.isNotEmpty) {
+        await signalR.sendContent(
+          roomName: currentRoomId.value,
+          action: "SendShieldWord",
+          overlay: false,
+          content: json.encode(words),
+        );
+      }
+
+      // 4. 发送 Bilibili 账号
+      if (BiliBiliAccountService.instance.logined.value &&
+          BiliBiliAccountService.instance.cookie.isNotEmpty) {
+        await signalR.sendContent(
+          roomName: currentRoomId.value,
+          action: "SendBiliAccount",
+          overlay: true,
+          content: json.encode({
+            "cookie": BiliBiliAccountService.instance.cookie,
+          }),
+        );
+      }
+
+      SmartDialog.showToast("已成功将 TV 端全部数据同步至手机！");
+    } catch (e) {
+      SmartDialog.showToast("同步出错: $e");
+    } finally {
+      SmartDialog.dismiss();
     }
   }
 

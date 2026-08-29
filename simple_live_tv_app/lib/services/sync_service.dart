@@ -153,6 +153,11 @@ class SyncService extends GetxService {
       serverRouter.post('/sync/history', _syncHistoryReuqest);
       serverRouter.post('/sync/blocked_word', _syncBlockedWordReuqest);
       serverRouter.post('/sync/account/bilibili', _syncBiliAccountReuqest);
+      serverRouter.get('/export/follow', _exportFollowUserRequest);
+      serverRouter.get('/export/history', _exportHistoryRequest);
+      serverRouter.get('/export/blocked_word', _exportBlockedWordRequest);
+      serverRouter.get('/export/account/bilibili', _exportBiliAccountRequest);
+      serverRouter.get('/export/all', _exportAllRequest);
 
       server = await shelf_io.serve(
         serverRouter,
@@ -313,6 +318,97 @@ class SyncService extends GetxService {
       return toJsonResponse({
         'status': true,
         'message': 'success',
+      });
+    } catch (e) {
+      return toJsonResponse({
+        'status': false,
+        'message': e.toString(),
+      });
+    }
+  }
+
+  /// 导出关注列表
+  Future<shelf.Response> _exportFollowUserRequest(shelf.Request request) async {
+    try {
+      var follows = DBService.instance.followBox.values.map((e) => e.toJson()).toList();
+      return toJsonResponse({
+        'status': true,
+        'data': follows,
+      });
+    } catch (e) {
+      return toJsonResponse({
+        'status': false,
+        'message': e.toString(),
+      });
+    }
+  }
+
+  /// 导出历史记录
+  Future<shelf.Response> _exportHistoryRequest(shelf.Request request) async {
+    try {
+      var histories = DBService.instance.historyBox.values.map((e) => e.toJson()).toList();
+      return toJsonResponse({
+        'status': true,
+        'data': histories,
+      });
+    } catch (e) {
+      return toJsonResponse({
+        'status': false,
+        'message': e.toString(),
+      });
+    }
+  }
+
+  /// 导出屏蔽词
+  Future<shelf.Response> _exportBlockedWordRequest(shelf.Request request) async {
+    try {
+      var words = AppSettingsController.instance.shieldList.toList();
+      return toJsonResponse({
+        'status': true,
+        'data': words,
+      });
+    } catch (e) {
+      return toJsonResponse({
+        'status': false,
+        'message': e.toString(),
+      });
+    }
+  }
+
+  /// 导出哔哩哔哩账号
+  Future<shelf.Response> _exportBiliAccountRequest(shelf.Request request) async {
+    try {
+      return toJsonResponse({
+        'status': true,
+        'data': {
+          'cookie': BiliBiliAccountService.instance.cookie,
+          'logined': BiliBiliAccountService.instance.logined.value,
+        },
+      });
+    } catch (e) {
+      return toJsonResponse({
+        'status': false,
+        'message': e.toString(),
+      });
+    }
+  }
+
+  /// 导出所有数据
+  Future<shelf.Response> _exportAllRequest(shelf.Request request) async {
+    try {
+      var follows = DBService.instance.followBox.values.map((e) => e.toJson()).toList();
+      var histories = DBService.instance.historyBox.values.map((e) => e.toJson()).toList();
+      var words = AppSettingsController.instance.shieldList.toList();
+      var cookie = BiliBiliAccountService.instance.cookie;
+
+      return toJsonResponse({
+        'status': true,
+        'data': {
+          'follows': follows,
+          'histories': histories,
+          'blocked_words': words,
+          'bilibili_cookie': cookie,
+        },
       });
     } catch (e) {
       return toJsonResponse({

@@ -155,6 +155,17 @@ class SyncPage extends GetView<SyncController> {
                                 ),
                                 textAlign: TextAlign.center,
                               ),
+                              if (controller.roomUsers.length > 1) ...[
+                                AppStyle.vGap16,
+                                HighlightButton(
+                                  focusNode: controller.sendAllFocusNode,
+                                  iconData: Icons.upload,
+                                  text: "一键同步 TV 数据至手机",
+                                  onTap: () {
+                                    controller.sendAllToRoom();
+                                  },
+                                ),
+                              ],
                             ],
                           );
                         } else if (controller.state.value ==
