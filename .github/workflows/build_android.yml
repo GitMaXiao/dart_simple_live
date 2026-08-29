@@ -54,41 +54,45 @@ jobs:
           java -version
 
       # 如果仓库配置了签名 Secrets，则生成签名配置 key.properties
-      - name: 配置移动端签名 (可选)
-        if: env.KEYSTORE_BASE64 != ''
-        id: mobile_keystore
-        uses: timheuer/base64-to-file@v1.2
-        with:
-          fileName: keystore.jks
-          encodedString: ${{ secrets.KEYSTORE_BASE64 }}
+      - name: 配置签名证书 (可选)
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-
-      - name: 写入移动端 key.properties
-        if: steps.mobile_keystore.outputs.filePath != ''
-        run: |
-          echo "storeFile=${{ steps.mobile_keystore.outputs.filePath }}" > simple_live_app/android/key.properties
-          echo "storePassword=${{ secrets.STORE_PASSWORD }}" >> simple_live_app/android/key.properties
-          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> simple_live_app/android/key.properties
-          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> simple_live_app/android/key.properties
-
-      - name: 配置 TV 端签名 (可选)
-        if: env.TV_KEYSTORE_BASE64 != ''
-        id: tv_keystore
-        uses: timheuer/base64-to-file@v1.2
-        with:
-          fileName: tv_keystore.jks
-          encodedString: ${{ secrets.TV_KEYSTORE_BASE64 }}
-        env:
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           TV_KEYSTORE_BASE64: ${{ secrets.TV_KEYSTORE_BASE64 }}
-
-      - name: 写入 TV 端 key.properties
-        if: steps.tv_keystore.outputs.filePath != ''
+          TV_STORE_PASSWORD: ${{ secrets.TV_STORE_PASSWORD }}
+          TV_KEY_PASSWORD: ${{ secrets.TV_KEY_PASSWORD }}
+          TV_KEY_ALIAS: ${{ secrets.TV_KEY_ALIAS }}
         run: |
-          echo "storeFile=${{ steps.tv_keystore.outputs.filePath }}" > simple_live_tv_app/android/key.properties
-          echo "storePassword=${{ secrets.TV_STORE_PASSWORD }}" >> simple_live_tv_app/android/key.properties
-          echo "keyPassword=${{ secrets.TV_KEY_PASSWORD }}" >> simple_live_tv_app/android/key.properties
-          echo "keyAlias=${{ secrets.TV_KEY_ALIAS }}" >> simple_live_tv_app/android/key.properties
+          # 移动端签名配置
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 --decode > simple_live_app/android/keystore.jks
+            echo "storeFile=keystore.jks" > simple_live_app/android/key.properties
+            echo "storePassword=$STORE_PASSWORD" >> simple_live_app/android/key.properties
+            echo "keyPassword=$KEY_PASSWORD" >> simple_live_app/android/key.properties
+            echo "keyAlias=$KEY_ALIAS" >> simple_live_app/android/key.properties
+            echo "已配置移动端 Release 签名"
+          else
+            echo "未配置移动端签名 Secrets，自动使用 Debug 签名打包"
+          fi
+
+          # TV 端签名配置
+          if [ -n "$TV_KEYSTORE_BASE64" ]; then
+            echo "$TV_KEYSTORE_BASE64" | base64 --decode > simple_live_tv_app/android/keystore.jks
+            echo "storeFile=keystore.jks" > simple_live_tv_app/android/key.properties
+            echo "storePassword=$TV_STORE_PASSWORD" >> simple_live_tv_app/android/key.properties
+            echo "keyPassword=$TV_KEY_PASSWORD" >> simple_live_tv_app/android/key.properties
+            echo "keyAlias=$TV_KEY_ALIAS" >> simple_live_tv_app/android/key.properties
+            echo "已配置 TV 端 Release 签名"
+          elif [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 --decode > simple_live_tv_app/android/keystore.jks
+            echo "storeFile=keystore.jks" > simple_live_tv_app/android/key.properties
+            echo "storePassword=$STORE_PASSWORD" >> simple_live_tv_app/android/key.properties
+            echo "keyPassword=$KEY_PASSWORD" >> simple_live_tv_app/android/key.properties
+            echo "keyAlias=$KEY_ALIAS" >> simple_live_tv_app/android/key.properties
+            echo "TV 端复用移动端 Release 签名"
+          fi
 
       # ----------------- 构建移动端 -----------------
       - name: 获取移动端依赖
@@ -170,3 +174,4 @@ jobs:
           draft: false
           prerelease: false
           generate_release_notes: true
+

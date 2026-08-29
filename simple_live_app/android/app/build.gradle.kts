@@ -40,20 +40,28 @@ android {
     }
 
     signingConfigs {
-        create("release") {
-            keyAlias = keystoreProperties["keyAlias"] as String
-            keyPassword = keystoreProperties["keyPassword"] as String
-            storeFile = keystoreProperties["storeFile"]?.let { file(it) }
-            storePassword = keystoreProperties["storePassword"] as String
-            isV1SigningEnabled = true
-            isV2SigningEnabled = true
+        val hasKeyProperties = keystorePropertiesFile.exists() && 
+            keystoreProperties.containsKey("keyAlias") &&
+            keystoreProperties.containsKey("keyPassword") &&
+            keystoreProperties.containsKey("storeFile") &&
+            keystoreProperties.containsKey("storePassword")
+
+        if (hasKeyProperties) {
+            create("release") {
+                keyAlias = keystoreProperties["keyAlias"] as String
+                keyPassword = keystoreProperties["keyPassword"] as String
+                storeFile = keystoreProperties["storeFile"]?.let { file(it) }
+                storePassword = keystoreProperties["storePassword"] as String
+                isV1SigningEnabled = true
+                isV2SigningEnabled = true
+            }
         }
     }
 
     buildTypes {
         release {
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("release")
+            val releaseSigning = signingConfigs.findByName("release")
+            signingConfig = releaseSigning ?: signingConfigs.getByName("debug")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
