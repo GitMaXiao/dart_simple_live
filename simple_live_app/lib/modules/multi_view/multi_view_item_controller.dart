@@ -154,11 +154,17 @@ class MultiViewItemController {
     isLoading.value = false;
   }
 
+  final RxBool danmakuConnected = false.obs;
+  final RxBool danmakuConnecting = false.obs;
+
   void _startDanmaku(dynamic danmakuData) {
     try {
       liveDanmaku?.stop();
       liveDanmaku = site?.liveSite.getDanmaku();
       if (liveDanmaku == null) return;
+
+      danmakuConnecting.value = true;
+      danmakuConnected.value = false;
 
       liveDanmaku!.onMessage = (msg) {
         if (msg.type == LiveMessageType.chat) {
@@ -169,9 +175,41 @@ class MultiViewItemController {
         }
       };
 
+      liveDanmaku!.onReady = () {
+        danmakuConnected.value = true;
+        danmakuConnecting.value = false;
+      };
+
+      liveDanmaku!.onClose = (msg) {
+        danmakuConnected.value = false;
+        danmakuConnecting.value = false;
+      };
+
       liveDanmaku!.start(danmakuData);
     } catch (e) {
+      danmakuConnecting.value = false;
+      danmakuConnected.value = false;
       Log.e("MultiView item $index 弹幕启动失败: $e", StackTrace.current);
+    }
+  }
+
+  Future<void> reconnectDanmaku() async {
+    if (site == null || roomId == null) return;
+    danmakuConnecting.value = true;
+    try {
+      await liveDanmaku?.stop();
+      var danmakuData = detail.value?.danmakuData;
+      if (danmakuData == null) {
+        var newDetail = await site!.liveSite.getRoomDetail(roomId: roomId!);
+        detail.value = newDetail;
+        danmakuData = newDetail.danmakuData;
+      }
+      _startDanmaku(danmakuData);
+      Log.d("MultiView item $index 已发起弹幕重连");
+    } catch (e) {
+      danmakuConnecting.value = false;
+      danmakuConnected.value = false;
+      Log.e("MultiView item $index 弹幕重连失败: $e", StackTrace.current);
     }
   }
 

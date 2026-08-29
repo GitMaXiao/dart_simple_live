@@ -110,6 +110,16 @@ class TVMultiViewActionDialog extends StatelessWidget {
                     item.refreshStream();
                   },
                 ),
+                // 重连弹幕
+                HighlightButton(
+                  focusNode: AppFocusNode(),
+                  iconData: Remix.chat_3_line,
+                  text: "重连弹幕",
+                  onTap: () {
+                    Get.back();
+                    item.reconnectDanmaku();
+                  },
+                ),
                 // 更换直播间
                 HighlightButton(
                   focusNode: AppFocusNode(),

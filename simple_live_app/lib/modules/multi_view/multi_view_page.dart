@@ -396,6 +396,8 @@ class MultiViewPage extends GetView<MultiViewController> {
                   controller.selectRoomForItem(index);
                 } else if (val == "refresh") {
                   item.refreshStream();
+                } else if (val == "reconnect_danmaku") {
+                  item.reconnectDanmaku();
                 } else if (val == "close") {
                   item.clearRoom();
                 } else if (val.startsWith("quality_")) {
@@ -412,6 +414,10 @@ class MultiViewPage extends GetView<MultiViewController> {
                   const PopupMenuItem(
                     value: "refresh",
                     child: Text("刷新当前画面"),
+                  ),
+                  const PopupMenuItem(
+                    value: "reconnect_danmaku",
+                    child: Text("重连弹幕服务器"),
                   ),
                   const PopupMenuItem(
                     value: "close",
