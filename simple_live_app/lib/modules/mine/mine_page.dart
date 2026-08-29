@@ -112,6 +112,23 @@ class MinePage extends StatelessWidget {
               color: Colors.grey.withAlpha(25),
             ),
             ListTile(
+              leading: const Icon(Remix.layout_grid_line, color: Colors.blueAccent),
+              title: const Text("多屏同播 / 多视角"),
+              subtitle: const Text("支持 2~4 路分屏与独立音频控制"),
+              trailing: const Icon(
+                Icons.chevron_right,
+                color: Colors.grey,
+              ),
+              onTap: () {
+                Get.toNamed(RoutePath.kMultiView);
+              },
+            ),
+            Divider(
+              indent: 12,
+              endIndent: 12,
+              color: Colors.grey.withAlpha(25),
+            ),
+            ListTile(
               leading: const Icon(Remix.link),
               title: const Text("链接解析"),
               trailing: const Icon(

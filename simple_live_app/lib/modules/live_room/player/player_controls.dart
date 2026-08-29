@@ -11,6 +11,7 @@ import 'package:simple_live_app/app/sites.dart';
 import 'package:simple_live_app/app/utils.dart';
 import 'package:simple_live_app/modules/live_room/live_room_controller.dart';
 import 'package:simple_live_app/modules/settings/danmu_settings_page.dart';
+import 'package:simple_live_app/routes/route_path.dart';
 import 'package:simple_live_app/services/follow_service.dart';
 import 'package:simple_live_app/widgets/desktop_refresh_button.dart';
 import 'package:simple_live_app/widgets/follow_user_item.dart';
@@ -198,6 +199,23 @@ Widget buildFullControls(
                         size: 24,
                       ),
                     ),
+                  ),
+                  IconButton(
+                    onPressed: () {
+                      Get.toNamed(
+                        RoutePath.kMultiView,
+                        arguments: {
+                          'site': controller.site,
+                          'roomId': controller.roomId,
+                        },
+                      );
+                    },
+                    icon: const Icon(
+                      Remix.layout_grid_line,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                    tooltip: "以多屏同播打开",
                   ),
                   IconButton(
                     onPressed: () {
