@@ -6,7 +6,8 @@ import 'package:simple_live_tv_app/app/app_focus_node.dart';
 import 'package:simple_live_tv_app/app/app_style.dart';
 import 'package:simple_live_tv_app/modules/multi_view/multi_view_item_controller.dart';
 import 'package:simple_live_tv_app/widgets/button/highlight_button.dart';
-import 'package:simple_live_tv_app/widgets/button/highlight_list_tile.dart';
+import 'package:simple_live_tv_app/widgets/highlight_widget.dart';
+import 'package:simple_live_tv_app/widgets/net_image.dart';
 
 class TVMultiViewActionDialog extends StatelessWidget {
   final MultiViewItemController item;
@@ -42,37 +43,94 @@ class TVMultiViewActionDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: const Color(0xFF1E1E24),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.w)),
+      backgroundColor: const Color(0xFF14141B),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20.w),
+        side: BorderSide(color: Colors.white.withAlpha(25), width: 1.w),
+      ),
       child: Container(
-        width: 800.w,
+        width: 880.w,
         padding: AppStyle.edgeInsetsA32,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    "${item.detail.value?.userName ?? item.roomId} - 分屏操作",
-                    style: AppStyle.titleStyleWhite,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+            // 顶部主播详情卡片
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E1E28),
+                borderRadius: BorderRadius.circular(14.w),
+                border: Border.all(color: Colors.white.withAlpha(15), width: 1.w),
+              ),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 56.w,
+                    height: 56.w,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(28.w),
+                      child: NetImage(item.detail.value?.userAvatar ?? ''),
+                    ),
                   ),
-                ),
-                HighlightButton(
-                  focusNode: AppFocusNode(),
-                  iconData: Icons.close,
-                  text: "返回",
-                  onTap: () => Get.back(),
-                ),
-              ],
+                  AppStyle.hGap16,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              "${item.detail.value?.userName ?? item.roomId}",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 20.sp,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            AppStyle.hGap12,
+                            Container(
+                              padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 2.h),
+                              decoration: BoxDecoration(
+                                color: item.index == 0 ? Colors.blueAccent : Colors.white24,
+                                borderRadius: BorderRadius.circular(6.w),
+                              ),
+                              child: Text(
+                                item.index == 0 ? "主视角" : "视角 (${item.index + 1})",
+                                style: TextStyle(color: Colors.white, fontSize: 12.sp, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
+                        ),
+                        AppStyle.vGap4,
+                        Text(
+                          item.detail.value?.title ?? '暂无标题',
+                          style: TextStyle(color: Colors.white60, fontSize: 14.sp),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  HighlightButton(
+                    focusNode: AppFocusNode(),
+                    iconData: Icons.close,
+                    text: "关闭菜单",
+                    onTap: () => Get.back(),
+                  ),
+                ],
+              ),
             ),
             AppStyle.vGap24,
+
+            // 核心功能操作网格
+            Text("快捷操作", style: TextStyle(color: Colors.white70, fontSize: 18.sp, fontWeight: FontWeight.bold)),
+            AppStyle.vGap12,
             Wrap(
               spacing: 16.w,
-              runSpacing: 16.h,
+              runSpacing: 14.h,
               children: [
                 // 静音切换
                 Obx(
@@ -100,6 +158,16 @@ class TVMultiViewActionDialog extends StatelessWidget {
                       onMakePrimary();
                     },
                   ),
+                // 更换直播间
+                HighlightButton(
+                  focusNode: AppFocusNode(),
+                  iconData: Remix.edit_line,
+                  text: "更换直播间",
+                  onTap: () {
+                    Get.back();
+                    onReplace();
+                  },
+                ),
                 // 刷新画面
                 HighlightButton(
                   focusNode: AppFocusNode(),
@@ -120,16 +188,6 @@ class TVMultiViewActionDialog extends StatelessWidget {
                     item.reconnectDanmaku();
                   },
                 ),
-                // 更换直播间
-                HighlightButton(
-                  focusNode: AppFocusNode(),
-                  iconData: Remix.edit_line,
-                  text: "更换直播间",
-                  onTap: () {
-                    Get.back();
-                    onReplace();
-                  },
-                ),
                 // 关闭分屏
                 HighlightButton(
                   focusNode: AppFocusNode(),
@@ -142,29 +200,63 @@ class TVMultiViewActionDialog extends StatelessWidget {
                 ),
               ],
             ),
+
+            // 清晰度选择区
             if (item.qualities.isNotEmpty) ...[
               AppStyle.vGap24,
-              Text("清晰度选择：", style: TextStyle(color: Colors.white70, fontSize: 20.sp)),
+              Text("清晰度选择", style: TextStyle(color: Colors.white70, fontSize: 18.sp, fontWeight: FontWeight.bold)),
               AppStyle.vGap12,
               SizedBox(
-                height: 180.h,
+                height: 56.h,
                 child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
                   itemCount: item.qualities.length,
-                  separatorBuilder: (_, __) => AppStyle.vGap8,
+                  separatorBuilder: (_, __) => AppStyle.hGap12,
                   itemBuilder: (context, qIndex) {
                     var q = item.qualities[qIndex];
-                    bool isCurrent = item.currentQualityIndex.value == qIndex;
-                    return HighlightListTile(
-                      focusNode: AppFocusNode(),
-                      title: q.quality,
-                      trailing: isCurrent
-                          ? const Icon(Icons.check_circle, color: Colors.blueAccent)
-                          : null,
-                      onTap: () {
-                        Get.back();
-                        item.switchQuality(qIndex);
-                      },
-                    );
+                    var focusNode = AppFocusNode();
+                    return Obx(() {
+                      bool isCurrent = item.currentQualityIndex.value == qIndex;
+                      return HighlightWidget(
+                        focusNode: focusNode,
+                        borderRadius: BorderRadius.circular(10.w),
+                        color: isCurrent ? Colors.blueAccent.withAlpha(40) : const Color(0xFF1E1E28),
+                        foucsedColor: Colors.amberAccent.withAlpha(60),
+                        onTap: () {
+                          Get.back();
+                          item.switchQuality(qIndex);
+                        },
+                        child: Container(
+                          padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 10.h),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(10.w),
+                            border: Border.all(
+                              color: isCurrent
+                                  ? Colors.blueAccent
+                                  : (focusNode.isFoucsed.value ? Colors.amberAccent : Colors.white12),
+                              width: 2.w,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                q.quality,
+                                style: TextStyle(
+                                  color: isCurrent ? Colors.blueAccent : Colors.white,
+                                  fontSize: 16.sp,
+                                  fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                                ),
+                              ),
+                              if (isCurrent) ...[
+                                AppStyle.hGap8,
+                                Icon(Icons.check, color: Colors.blueAccent, size: 16.sp),
+                              ],
+                            ],
+                          ),
+                        ),
+                      );
+                    });
                   },
                 ),
               ),
