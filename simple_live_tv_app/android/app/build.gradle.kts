@@ -46,15 +46,22 @@ android {
             keystoreProperties.containsKey("storeFile") &&
             keystoreProperties.containsKey("storePassword")
 
-        if (hasKeyProperties) {
-            create("release") {
+        val defaultReleaseKeystore = rootProject.file("simple_live_release.jks")
+
+        create("release") {
+            if (hasKeyProperties) {
                 keyAlias = keystoreProperties["keyAlias"] as String
                 keyPassword = keystoreProperties["keyPassword"] as String
                 storeFile = keystoreProperties["storeFile"]?.let { file(it) }
                 storePassword = keystoreProperties["storePassword"] as String
-                isV1SigningEnabled = true
-                isV2SigningEnabled = true
+            } else if (defaultReleaseKeystore.exists()) {
+                keyAlias = "simplelive"
+                keyPassword = "simplelive123"
+                storeFile = defaultReleaseKeystore
+                storePassword = "simplelive123"
             }
+            isV1SigningEnabled = true
+            isV2SigningEnabled = true
         }
     }
 
