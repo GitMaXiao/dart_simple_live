@@ -148,20 +148,20 @@ class MultiViewPage extends GetView<MultiViewController> {
       ),
       body: Obx(() {
         if (controller.isFullScreen.value) {
-          // 全屏横屏模式：沉浸大屏充满
+          // 全屏横屏模式：沉浸大屏充满，适配左右安全区域
           return Stack(
+            fit: StackFit.expand,
             children: [
               Positioned.fill(
-                child: _buildLayout(context),
-              ),
-              _buildGlobalDanmakuLayer(),
-              // 全屏透明点击层（轻触屏幕任意位置呼出/隐藏控制栏）
-              Positioned.fill(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.translucent,
-                  onTap: () => controller.toggleControls(),
+                child: SafeArea(
+                  top: false,
+                  bottom: false,
+                  left: true,
+                  right: true,
+                  child: _buildLayout(context),
                 ),
               ),
+              _buildGlobalDanmakuLayer(),
               _buildFullScreenControls(context),
             ],
           );
