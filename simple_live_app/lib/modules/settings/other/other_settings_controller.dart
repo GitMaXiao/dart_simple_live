@@ -155,6 +155,7 @@ class OtherSettingsController extends BaseController {
 
   void exportConfig() async {
     try {
+      SmartDialog.showLoading(msg: "正在导出配置...");
       // 组装数据
       var data = {
         "type": "simple_live",
@@ -165,30 +166,44 @@ class OtherSettingsController extends BaseController {
         "shield": LocalStorageService.instance.shieldBox.toMap(),
       };
 
-      var bytes = Uint8List.fromList(utf8.encode(jsonEncode(data)));
+      var jsonStr = const JsonEncoder.withIndent('  ').convert(data);
+      var bytes = Uint8List.fromList(utf8.encode(jsonStr));
 
-      // FilePicker 直接写入
-      var inlineSave = Platform.isAndroid || Platform.isIOS || kIsWeb;
+      if (Platform.isAndroid || Platform.isIOS) {
+        final tempDir = await getTemporaryDirectory();
+        final file = File(
+            '${tempDir.path}/simple_live_config_${DateTime.now().millisecondsSinceEpoch}.json');
+        await file.writeAsBytes(bytes);
+        SmartDialog.dismiss();
+        await SharePlus.instance.share(ShareParams(
+          files: [
+            XFile(file.path,
+                mimeType: 'application/json', name: 'simple_live_config.json')
+          ],
+          subject: 'Simple Live 配置文件备份',
+        ));
+        SmartDialog.showToast("已调起分享/保存");
+        return;
+      }
 
       var path = await FilePicker.platform.saveFile(
         allowedExtensions: ['json'],
         type: FileType.custom,
         fileName: "simple_live_config.json",
-        bytes: inlineSave ? bytes : null,
+        bytes: bytes,
       );
 
-      if (path == null && !kIsWeb) {
+      SmartDialog.dismiss();
+      if (path == null) {
         SmartDialog.showToast("保存取消");
         return;
       }
 
-      // 桌面平台需要手动写入
-      if (!inlineSave && path != null) {
-        await File(path).writeAsBytes(bytes);
-      }
-
-      SmartDialog.showToast("保存成功");
+      var file = File(path);
+      await file.writeAsBytes(bytes);
+      SmartDialog.showToast("导出成功");
     } catch (e) {
+      SmartDialog.dismiss();
       Log.logPrint(e);
       SmartDialog.showToast("导出失败:$e");
     }
@@ -199,30 +214,66 @@ class OtherSettingsController extends BaseController {
       var file = await FilePicker.platform.pickFiles(
         allowedExtensions: ['json'],
         type: FileType.custom,
+        withData: true,
       );
-      if (file == null) {
+      if (file == null || file.files.isEmpty) {
         return;
       }
-      var filePath = file.files.single.path!;
-      var data = jsonDecode(await File(filePath).readAsString());
-      if (data["type"] != "simple_live") {
-        SmartDialog.showToast("不支持的配置文件");
+
+      String content = "";
+      final singleFile = file.files.single;
+      if (singleFile.bytes != null && singleFile.bytes!.isNotEmpty) {
+        content = utf8.decode(singleFile.bytes!);
+      } else if (singleFile.path != null && singleFile.path!.isNotEmpty) {
+        content = await File(singleFile.path!).readAsString();
+      }
+
+      if (content.trim().isEmpty) {
+        SmartDialog.showToast("文件内容为空或无法读取");
         return;
       }
+
+      var data = jsonDecode(content);
+      if (data is! Map || data["type"] != "simple_live") {
+        SmartDialog.showToast("不支持的配置文件格式");
+        return;
+      }
+
       // 检查platform
       if (data["platform"] != Platform.operatingSystem &&
-          !await Utils.showAlertDialog("导入配置文件平台不匹配,是否继续导入?", title: "平台不匹配")) {
+          !await Utils.showAlertDialog("导入配置文件来源平台不一致，是否继续导入?",
+              title: "平台不匹配")) {
         return;
       }
-      LocalStorageService.instance.settingsBox.clear();
-      LocalStorageService.instance.shieldBox.clear();
-      LocalStorageService.instance.settingsBox.putAll(data["config"]);
-      LocalStorageService.instance.shieldBox
-          .putAll(data["shield"].cast<String, String>());
-      SmartDialog.showToast("导入成功,重启生效");
-    } catch (e) {
-      Log.logPrint(e);
-      SmartDialog.showToast("导入失败:$e");
+
+      SmartDialog.showLoading(msg: "正在导入配置...");
+
+      // 安全导入 settingsBox
+      if (data["config"] != null && data["config"] is Map) {
+        await LocalStorageService.instance.settingsBox.clear();
+        final configMap = data["config"] as Map;
+        for (var entry in configMap.entries) {
+          await LocalStorageService.instance.settingsBox
+              .put(entry.key, entry.value);
+        }
+      }
+
+      // 安全导入 shieldBox
+      if (data["shield"] != null && data["shield"] is Map) {
+        await LocalStorageService.instance.shieldBox.clear();
+        final shieldMap = data["shield"] as Map;
+        for (var entry in shieldMap.entries) {
+          await LocalStorageService.instance.shieldBox
+              .put(entry.key.toString(), entry.value.toString());
+        }
+      }
+
+      SmartDialog.dismiss();
+      SmartDialog.showToast("导入成功，重启应用后生效");
+    } catch (e, stackTrace) {
+      SmartDialog.dismiss();
+      Log.e("配置导入失败: $e", stackTrace);
+      SmartDialog.showToast("导入失败: $e");
     }
   }
 

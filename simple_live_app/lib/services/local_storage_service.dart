@@ -182,9 +182,14 @@ class LocalStorageService extends GetxService {
 
   T getValue<T>(dynamic key, T defaultValue) {
     try {
-      var value = settingsBox.get(key, defaultValue: defaultValue) as T;
-      Log.d("Get LocalStorage：$key\r\n$value");
-      return value;
+      var value = settingsBox.get(key, defaultValue: defaultValue);
+      if (defaultValue is double && value is num) {
+        return value.toDouble() as T;
+      }
+      if (defaultValue is int && value is num) {
+        return value.toInt() as T;
+      }
+      return (value as T?) ?? defaultValue;
     } catch (e) {
       Log.logPrint(e);
       return defaultValue;
