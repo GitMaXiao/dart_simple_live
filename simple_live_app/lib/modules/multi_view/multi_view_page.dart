@@ -144,15 +144,16 @@ class MultiViewPage extends GetView<MultiViewController> {
                 ),
         ),
       ),
-      body: SafeArea(
-        top: false,
-        bottom: false,
-        child: Stack(
-          children: [
-            // 底层分屏播放画面
-            Positioned.fill(
-              child: Obx(() => _buildLayout(context)),
-            ),
+      body: Obx(
+        () => SafeArea(
+          top: false,
+          bottom: !controller.isFullScreen.value,
+          child: Stack(
+            children: [
+              // 底层分屏播放画面
+              Positioned.fill(
+                child: _buildLayout(context),
+              ),
 
             // 顶层全局跨全屏弹幕层
             Positioned.fill(
@@ -250,57 +251,60 @@ class MultiViewPage extends GetView<MultiViewController> {
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 
   void _showLayoutSheet(BuildContext context) {
     Get.bottomSheet(
-      Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-          color: Theme.of(context).scaffoldBackgroundColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                children: [
-                  Icon(Remix.layout_grid_line, size: 18),
-                  AppStyle.hGap8,
-                  Text(
-                    "切换分屏布局",
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                ],
+      SafeArea(
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          decoration: BoxDecoration(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  children: [
+                    Icon(Remix.layout_grid_line, size: 18),
+                    AppStyle.hGap8,
+                    Text(
+                      "切换分屏布局",
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const Divider(),
-            _buildLayoutOption(
-              context,
-              layout: MultiViewLayout.two,
-              title: "2 分屏 (双画面)",
-              subtitle: "左右或上下并排展示 2 个直播视角",
-              icon: Remix.layout_column_line,
-            ),
-            _buildLayoutOption(
-              context,
-              layout: MultiViewLayout.three,
-              title: "3 分屏 (1主+2副)",
-              subtitle: "大主屏居左/居上，2个小副屏居侧",
-              icon: Remix.layout_masonry_line,
-            ),
-            _buildLayoutOption(
-              context,
-              layout: MultiViewLayout.four,
-              title: "4 宫格分屏",
-              subtitle: "4个直播间等比例四分屏同播",
-              icon: Remix.layout_grid_line,
-            ),
-          ],
+              const Divider(),
+              _buildLayoutOption(
+                context,
+                layout: MultiViewLayout.two,
+                title: "2 分屏 (双画面)",
+                subtitle: "左右或上下并排展示 2 个直播视角",
+                icon: Remix.layout_column_line,
+              ),
+              _buildLayoutOption(
+                context,
+                layout: MultiViewLayout.three,
+                title: "3 分屏 (1主+2副)",
+                subtitle: "大主屏居左/居上，2个小副屏居侧",
+                icon: Remix.layout_masonry_line,
+              ),
+              _buildLayoutOption(
+                context,
+                layout: MultiViewLayout.four,
+                title: "4 宫格分屏",
+                subtitle: "4个直播间等比例四分屏同播",
+                icon: Remix.layout_grid_line,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -447,220 +451,234 @@ class MultiViewPage extends GetView<MultiViewController> {
       bool isPlayingAudio = !item.isMuted.value && item.volume.value > 0;
       var site = item.site;
 
-      return GestureDetector(
-        onTap: () => controller.setFocus(index),
-        child: Container(
-          margin: const EdgeInsets.all(2.5),
-          decoration: BoxDecoration(
-            color: const Color(0xFF0F0F16),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: isFocused ? Colors.blueAccent : Colors.white.withAlpha(20),
-              width: isFocused ? 2.2 : 1,
-            ),
-            boxShadow: isFocused
-                ? [
-                    BoxShadow(
-                      color: Colors.blueAccent.withAlpha(80),
-                      blurRadius: 10,
-                      spreadRadius: 1,
-                    ),
-                  ]
-                : null,
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                // 视频或未添加占位
-                if (item.hasRoom.value)
-                  Video(
-                    controller: item.videoController,
-                    controls: NoVideoControls,
-                  )
-                else
-                  _buildEmptyPlaceholder(context, index),
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final double itemWidth = constraints.maxWidth;
+          final bool isNarrow = itemWidth < 220;
+          final bool isUltraNarrow = itemWidth < 160;
 
-                // 加载中
-                if (item.isLoading.value)
-                  Center(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.black87,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.white12),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.blueAccent,
-                            ),
-                          ),
-                          SizedBox(width: 10),
-                          Text(
-                            "加载中...",
-                            style: TextStyle(color: Colors.white, fontSize: 12),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+          return GestureDetector(
+            onTap: () => controller.setFocus(index),
+            child: Container(
+              margin: const EdgeInsets.all(2.0),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0F0F16),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: isFocused ? Colors.blueAccent : Colors.white.withAlpha(20),
+                  width: isFocused ? 2.2 : 1,
+                ),
+                boxShadow: isFocused
+                    ? [
+                        BoxShadow(
+                          color: Colors.blueAccent.withAlpha(80),
+                          blurRadius: 10,
+                          spreadRadius: 1,
+                        ),
+                      ]
+                    : null,
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    // 视频或未添加占位
+                    if (item.hasRoom.value)
+                      Video(
+                        controller: item.videoController,
+                        controls: NoVideoControls,
+                      )
+                    else
+                      _buildEmptyPlaceholder(context, index, isNarrow),
 
-                // 错误提示
-                if (item.isError.value)
-                  Center(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                      margin: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withAlpha(220),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.redAccent.withAlpha(100)),
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Remix.error_warning_line, color: Colors.redAccent, size: 26),
-                          const SizedBox(height: 6),
-                          Text(
-                            item.errorMsg.value,
-                            style: const TextStyle(color: Colors.white, fontSize: 12),
-                            textAlign: TextAlign.center,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
+                    // 加载中
+                    if (item.isLoading.value)
+                      Center(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.black87,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.white12),
                           ),
-                          AppStyle.vGap8,
-                          Row(
+                          child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              FilledButton.tonal(
-                                style: FilledButton.styleFrom(
-                                  visualDensity: VisualDensity.compact,
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.blueAccent,
                                 ),
-                                onPressed: () => item.refreshStream(),
-                                child: const Text("重试", style: TextStyle(fontSize: 11)),
                               ),
-                              AppStyle.hGap8,
-                              FilledButton(
-                                style: FilledButton.styleFrom(
-                                  visualDensity: VisualDensity.compact,
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                ),
-                                onPressed: () => controller.selectRoomForItem(index),
-                                child: const Text("换房间", style: TextStyle(fontSize: 11)),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                // 左上角综合信息 HUD 胶囊
-                if (item.hasRoom.value)
-                  Positioned(
-                    top: 6,
-                    left: 6,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // 视角徽章
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
-                          decoration: BoxDecoration(
-                            gradient: index == 0
-                                ? const LinearGradient(
-                                    colors: [Color(0xFF2F80ED), Color(0xFF56CCF2)],
-                                  )
-                                : LinearGradient(
-                                    colors: [Colors.black.withAlpha(190), Colors.grey.shade900],
-                                  ),
-                            borderRadius: BorderRadius.circular(5),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withAlpha(120),
-                                blurRadius: 4,
-                              ),
-                            ],
-                          ),
-                          child: Text(
-                            index == 0 ? "⭐ 主视角" : "视角 ${index + 1}",
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        // 平台徽章
-                        if (site != null) ...[
-                          const SizedBox(width: 4),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withAlpha(180),
-                              borderRadius: BorderRadius.circular(5),
-                              border: Border.all(color: Colors.white12),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Image.asset(site.logo, width: 11, height: 11),
-                                const SizedBox(width: 3),
-                                Text(
-                                  site.name,
-                                  style: const TextStyle(color: Colors.white70, fontSize: 9),
+                              if (!isUltraNarrow) ...[
+                                const SizedBox(width: 8),
+                                const Text(
+                                  "加载中...",
+                                  style: TextStyle(color: Colors.white, fontSize: 11),
                                 ),
                               ],
-                            ),
-                          ),
-                        ],
-                        // 音频状态
-                        const SizedBox(width: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: isPlayingAudio
-                                ? Colors.green.withAlpha(200)
-                                : Colors.redAccent.withAlpha(200),
-                            borderRadius: BorderRadius.circular(5),
-                          ),
-                          child: Icon(
-                            isPlayingAudio ? Remix.volume_up_fill : Remix.volume_mute_fill,
-                            size: 9,
-                            color: Colors.white,
+                            ],
                           ),
                         ),
-                      ],
-                    ),
-                  ),
+                      ),
 
-                // 底部控制浮层（有房间时）
-                if (item.hasRoom.value)
-                  _buildOverlayControls(context, item, index, isFocused),
-              ],
+                    // 错误提示
+                    if (item.isError.value)
+                      Center(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          margin: const EdgeInsets.symmetric(horizontal: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withAlpha(220),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.redAccent.withAlpha(100)),
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Remix.error_warning_line, color: Colors.redAccent, size: 20),
+                              const SizedBox(height: 4),
+                              Text(
+                                item.errorMsg.value,
+                                style: const TextStyle(color: Colors.white, fontSize: 11),
+                                textAlign: TextAlign.center,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 6),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  FilledButton.tonal(
+                                    style: FilledButton.styleFrom(
+                                      visualDensity: VisualDensity.compact,
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    ),
+                                    onPressed: () => item.refreshStream(),
+                                    child: const Text("重试", style: TextStyle(fontSize: 10)),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  FilledButton(
+                                    style: FilledButton.styleFrom(
+                                      visualDensity: VisualDensity.compact,
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    ),
+                                    onPressed: () => controller.selectRoomForItem(index),
+                                    child: const Text("换房间", style: TextStyle(fontSize: 10)),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                    // 左上角综合信息 HUD 胶囊
+                    if (item.hasRoom.value)
+                      Positioned(
+                        top: 5,
+                        left: 5,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // 视角徽章
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                              decoration: BoxDecoration(
+                                gradient: index == 0
+                                    ? const LinearGradient(
+                                        colors: [Color(0xFF2F80ED), Color(0xFF56CCF2)],
+                                      )
+                                    : LinearGradient(
+                                        colors: [Colors.black.withAlpha(190), Colors.grey.shade900],
+                                      ),
+                                borderRadius: BorderRadius.circular(4),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withAlpha(120),
+                                    blurRadius: 3,
+                                  ),
+                                ],
+                              ),
+                              child: Text(
+                                isUltraNarrow
+                                    ? (index == 0 ? "★" : "${index + 1}")
+                                    : (index == 0 ? "⭐ 主视角" : "视角 ${index + 1}"),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            // 平台徽章
+                            if (site != null && !isUltraNarrow) ...[
+                              const SizedBox(width: 3),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withAlpha(180),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(color: Colors.white12),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Image.asset(site.logo, width: 10, height: 10),
+                                    if (!isNarrow) ...[
+                                      const SizedBox(width: 2),
+                                      Text(
+                                        site.name,
+                                        style: const TextStyle(color: Colors.white70, fontSize: 8.5),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ],
+                            // 音频状态
+                            const SizedBox(width: 3),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: isPlayingAudio
+                                    ? Colors.green.withAlpha(200)
+                                    : Colors.redAccent.withAlpha(200),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Icon(
+                                isPlayingAudio ? Remix.volume_up_fill : Remix.volume_mute_fill,
+                                size: 8.5,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                    // 底部控制浮层（有房间时）
+                    if (item.hasRoom.value)
+                      _buildOverlayControls(context, item, index, isFocused, isNarrow),
+                  ],
+                ),
+              ),
             ),
-          ),
-        ),
+          );
+        },
       );
     });
   }
 
-  Widget _buildEmptyPlaceholder(BuildContext context, int index) {
+  Widget _buildEmptyPlaceholder(BuildContext context, int index, [bool isNarrow = false]) {
     return Center(
       child: InkWell(
         onTap: () => controller.selectRoomForItem(index),
         borderRadius: BorderRadius.circular(12),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: EdgeInsets.symmetric(horizontal: isNarrow ? 8 : 16, vertical: isNarrow ? 8 : 12),
           decoration: BoxDecoration(
             color: Colors.white.withAlpha(8),
             border: Border.all(color: Colors.white.withAlpha(30), width: 1.2),
@@ -670,27 +688,29 @@ class MultiViewPage extends GetView<MultiViewController> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                padding: const EdgeInsets.all(7),
+                padding: EdgeInsets.all(isNarrow ? 5 : 7),
                 decoration: BoxDecoration(
                   color: Colors.blueAccent.withAlpha(30),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Remix.add_line, size: 20, color: Colors.blueAccent),
+                child: Icon(Remix.add_line, size: isNarrow ? 16 : 20, color: Colors.blueAccent),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
               Text(
-                "点击添加视角 (${index + 1})",
-                style: const TextStyle(
+                isNarrow ? "添加视角 (${index + 1})" : "点击添加视角 (${index + 1})",
+                style: TextStyle(
                   color: Colors.white,
-                  fontSize: 12,
+                  fontSize: isNarrow ? 11 : 12,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(height: 2),
-              const Text(
-                "关注 · 历史 · 搜索 · 链接",
-                style: TextStyle(color: Colors.white38, fontSize: 10),
-              ),
+              if (!isNarrow) ...[
+                const SizedBox(height: 2),
+                const Text(
+                  "关注 · 历史 · 搜索 · 链接",
+                  style: TextStyle(color: Colors.white38, fontSize: 10),
+                ),
+              ],
             ],
           ),
         ),
@@ -703,13 +723,14 @@ class MultiViewPage extends GetView<MultiViewController> {
     MultiViewItemController item,
     int index,
     bool isFocused,
+    bool isNarrow,
   ) {
     return Positioned(
       bottom: 0,
       left: 0,
       right: 0,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
@@ -723,28 +744,30 @@ class MultiViewPage extends GetView<MultiViewController> {
         ),
         child: Row(
           children: [
-            // 主播头像与名称
+            // 主播头像
             if (item.detail.value?.userAvatar != null &&
-                item.detail.value!.userAvatar.isNotEmpty)
+                item.detail.value!.userAvatar.isNotEmpty &&
+                !isNarrow)
               Padding(
-                padding: const EdgeInsets.only(right: 5),
+                padding: const EdgeInsets.only(right: 4),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(9),
+                  borderRadius: BorderRadius.circular(8),
                   child: NetImage(
                     item.detail.value!.userAvatar,
-                    width: 18,
-                    height: 18,
+                    width: 16,
+                    height: 16,
                   ),
                 ),
               ),
+            // 主播名称
             Expanded(
               child: Text(
                 item.detail.value?.userName ?? (item.roomId ?? ""),
-                style: const TextStyle(
+                style: TextStyle(
                   color: Colors.white,
-                  fontSize: 11,
+                  fontSize: isNarrow ? 10 : 11,
                   fontWeight: FontWeight.bold,
-                  shadows: [Shadow(color: Colors.black, blurRadius: 2)],
+                  shadows: const [Shadow(color: Colors.black, blurRadius: 2)],
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -753,54 +776,59 @@ class MultiViewPage extends GetView<MultiViewController> {
             // 静音/音量控制
             IconButton(
               visualDensity: VisualDensity.compact,
-              padding: const EdgeInsets.all(3),
-              constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+              padding: const EdgeInsets.all(2),
+              constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
               icon: Icon(
                 item.isMuted.value || item.volume.value == 0
                     ? Remix.volume_mute_line
                     : Remix.volume_up_line,
-                size: 15,
+                size: 14,
                 color: item.isMuted.value ? Colors.redAccent : Colors.white,
               ),
               onPressed: () => item.toggleMute(),
             ),
-            // 设为主屏
-            if (index != 0)
-              IconButton(
-                visualDensity: VisualDensity.compact,
-                padding: const EdgeInsets.all(3),
-                constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
-                icon: const Icon(Remix.exchange_line, size: 15, color: Colors.white70),
-                tooltip: "设为主屏视角",
-                onPressed: () => controller.makePrimary(index),
-              ),
-            // 画质选择胶囊
-            if (item.qualities.isNotEmpty && item.currentQualityIndex.value >= 0)
-              InkWell(
-                onTap: () => _showQualitySheet(context, item),
-                borderRadius: BorderRadius.circular(4),
-                child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 2),
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withAlpha(25),
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: Colors.white24, width: 0.5),
-                  ),
-                  child: Text(
-                    item.qualities[item.currentQualityIndex.value].quality,
-                    style: const TextStyle(color: Colors.white70, fontSize: 9),
+            // 宽屏时直接展示设为主屏和画质胶囊
+            if (!isNarrow) ...[
+              if (index != 0)
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.all(2),
+                  constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                  icon: const Icon(Remix.exchange_line, size: 14, color: Colors.white70),
+                  tooltip: "设为主屏视角",
+                  onPressed: () => controller.makePrimary(index),
+                ),
+              if (item.qualities.isNotEmpty && item.currentQualityIndex.value >= 0)
+                InkWell(
+                  onTap: () => _showQualitySheet(context, item),
+                  borderRadius: BorderRadius.circular(4),
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withAlpha(25),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: Colors.white24, width: 0.5),
+                    ),
+                    child: Text(
+                      item.qualities[item.currentQualityIndex.value].quality,
+                      style: const TextStyle(color: Colors.white70, fontSize: 8.5),
+                    ),
                   ),
                 ),
-              ),
+            ],
             // 更多操作
             PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert, size: 15, color: Colors.white70),
               padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+              constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
               onSelected: (val) {
                 if (val == "replace") {
                   controller.selectRoomForItem(index);
+                } else if (val == "primary") {
+                  controller.makePrimary(index);
+                } else if (val == "quality") {
+                  _showQualitySheet(context, item);
                 } else if (val == "refresh") {
                   item.refreshStream();
                 } else if (val == "toggle_danmaku") {
@@ -812,6 +840,28 @@ class MultiViewPage extends GetView<MultiViewController> {
                 }
               },
               itemBuilder: (context) => [
+                if (isNarrow && index != 0)
+                  const PopupMenuItem(
+                    value: "primary",
+                    child: Row(
+                      children: [
+                        Icon(Remix.exchange_line, size: 16),
+                        SizedBox(width: 8),
+                        Text("设为主屏视角"),
+                      ],
+                    ),
+                  ),
+                if (isNarrow && item.qualities.isNotEmpty)
+                  const PopupMenuItem(
+                    value: "quality",
+                    child: Row(
+                      children: [
+                        Icon(Remix.equalizer_line, size: 16),
+                        SizedBox(width: 8),
+                        Text("切换画质清晰度"),
+                      ],
+                    ),
+                  ),
                 const PopupMenuItem(
                   value: "replace",
                   child: Row(
@@ -875,43 +925,45 @@ class MultiViewPage extends GetView<MultiViewController> {
 
   void _showQualitySheet(BuildContext context, MultiViewItemController item) {
     Get.bottomSheet(
-      Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-          color: Theme.of(context).scaffoldBackgroundColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Text(
-                "选择清晰度 (${item.detail.value?.userName ?? '分屏'})",
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-              ),
-            ),
-            const Divider(),
-            ...List.generate(item.qualities.length, (qI) {
-              var q = item.qualities[qI];
-              bool isCurrent = item.currentQualityIndex.value == qI;
-              return ListTile(
-                title: Text(
-                  q.quality,
-                  style: TextStyle(
-                    color: isCurrent ? Colors.blueAccent : null,
-                    fontWeight: isCurrent ? FontWeight.bold : null,
-                  ),
+      SafeArea(
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          decoration: BoxDecoration(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Text(
+                  "选择清晰度 (${item.detail.value?.userName ?? '分屏'})",
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                 ),
-                trailing: isCurrent ? const Icon(Remix.check_line, color: Colors.blueAccent) : null,
-                onTap: () {
-                  item.switchQuality(qI);
-                  Get.back();
-                },
-              );
-            }),
-          ],
+              ),
+              const Divider(),
+              ...List.generate(item.qualities.length, (qI) {
+                var q = item.qualities[qI];
+                bool isCurrent = item.currentQualityIndex.value == qI;
+                return ListTile(
+                  title: Text(
+                    q.quality,
+                    style: TextStyle(
+                      color: isCurrent ? Colors.blueAccent : null,
+                      fontWeight: isCurrent ? FontWeight.bold : null,
+                    ),
+                  ),
+                  trailing: isCurrent ? const Icon(Remix.check_line, color: Colors.blueAccent) : null,
+                  onTap: () {
+                    item.switchQuality(qI);
+                    Get.back();
+                  },
+                );
+              }),
+            ],
+          ),
         ),
       ),
     );

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:canvas_danmaku/canvas_danmaku.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -17,7 +18,28 @@ class MultiViewItemController {
   MultiViewItemController({
     required this.index,
     this.onFocusRequested,
-  });
+  }) {
+    _initPlayer();
+  }
+
+  Future<void> _initPlayer() async {
+    try {
+      if (player.platform is NativePlayer) {
+        var pp = player.platform as NativePlayer;
+        if (AppSettingsController.instance.customPlayerOutput.value) {
+          await pp.setProperty(
+            'ao',
+            AppSettingsController.instance.audioOutputDriver.value,
+          );
+        }
+        if (Platform.isAndroid) {
+          await pp.setProperty('force-seekable', 'yes');
+        }
+      }
+    } catch (e) {
+      Log.e("MultiView item $index 初始化播放参数失败: $e", StackTrace.current);
+    }
+  }
 
   Site? site;
   String? roomId;

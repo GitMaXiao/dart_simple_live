@@ -759,6 +759,13 @@ class DouyinSite implements LiveSite {
     return Future.value(<LiveSuperChatMessage>[]);
   }
 
+  @override
+  Future<List<LiveHighlightItem>> getHighlights({
+    required String roomId,
+  }) {
+    return Future.value(<LiveHighlightItem>[]);
+  }
+
   //生成指定长度的16进制随机字符串
   String generateRandomString(int length) {
     var random = Random.secure();

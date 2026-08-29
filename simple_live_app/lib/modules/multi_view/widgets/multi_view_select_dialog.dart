@@ -172,21 +172,28 @@ class _MultiViewSelectDialogState extends State<MultiViewSelectDialog>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.78,
-      decoration: BoxDecoration(
-        color: theme.scaffoldBackgroundColor,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(80),
-            blurRadius: 20,
-            spreadRadius: 2,
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    return AnimatedPadding(
+      padding: EdgeInsets.only(bottom: bottomInset),
+      duration: const Duration(milliseconds: 100),
+      curve: Curves.easeOut,
+      child: SafeArea(
+        top: false,
+        child: Container(
+          height: MediaQuery.of(context).size.height * 0.78,
+          decoration: BoxDecoration(
+            color: theme.scaffoldBackgroundColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withAlpha(80),
+                blurRadius: 20,
+                spreadRadius: 2,
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Column(
-        children: [
+          child: Column(
+            children: [
           // 顶部小把手
           Container(
             margin: const EdgeInsets.only(top: 10, bottom: 6),
@@ -261,7 +268,9 @@ class _MultiViewSelectDialogState extends State<MultiViewSelectDialog>
           ),
         ],
       ),
-    );
+    ),
+  ),
+);
   }
 
   Widget _buildFollowTab() {
@@ -512,6 +521,7 @@ class _MultiViewSelectDialogState extends State<MultiViewSelectDialog>
   Widget _buildInputTab() {
     final theme = Theme.of(context);
     return ListView(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       padding: AppStyle.edgeInsetsA16,
       children: [
         // 平台选择

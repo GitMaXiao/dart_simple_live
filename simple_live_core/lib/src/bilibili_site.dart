@@ -15,6 +15,7 @@ import 'package:simple_live_core/src/model/live_search_result.dart';
 import 'package:simple_live_core/src/model/live_room_detail.dart';
 import 'package:simple_live_core/src/model/live_play_quality.dart';
 import 'package:simple_live_core/src/model/live_category_result.dart';
+import 'package:simple_live_core/src/model/live_highlight_item.dart';
 
 class BiliBiliSite implements LiveSite {
   @override
@@ -426,6 +427,13 @@ class BiliBiliSite implements LiveSite {
       ls.add(message);
     }
     return ls;
+  }
+
+  @override
+  Future<List<LiveHighlightItem>> getHighlights({
+    required String roomId,
+  }) {
+    return Future.value([]);
   }
 
   /// 获取 buvid3 和 buvid4

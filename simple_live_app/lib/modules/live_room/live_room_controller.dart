@@ -60,6 +60,10 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
   var danmakuConnecting = false.obs;
   RxList<LiveSuperChatMessage> superChats = RxList<LiveSuperChatMessage>();
 
+  /// AI看点与精彩切片
+  RxList<LiveHighlightItem> highlights = RxList<LiveHighlightItem>();
+  var loadingHighlights = false.obs;
+
   /// 滚动控制
   final ScrollController scrollController = ScrollController();
 
@@ -182,6 +186,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
   void refreshRoom() {
     //messages.clear();
     superChats.clear();
+    highlights.clear();
     liveDanmaku.stop();
 
     loadData();
@@ -351,6 +356,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
       }
 
       getSuperChatMessage();
+      loadHighlights();
 
       addHistory();
       // 确认房间关注状态
@@ -571,6 +577,23 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
     superChats.value = superChats
         .where((x) => x.endTime.millisecondsSinceEpoch > now)
         .toList();
+  }
+
+  /// 读取AI看点与精彩切片
+  Future<void> loadHighlights() async {
+    if (site.id != Constant.kDouyu) {
+      return;
+    }
+    try {
+      loadingHighlights.value = true;
+      highlights.clear();
+      var list = await site.liveSite.getHighlights(roomId: roomId);
+      highlights.value = list;
+    } catch (e) {
+      Log.logPrint(e);
+    } finally {
+      loadingHighlights.value = false;
+    }
   }
 
   /// 添加历史记录
@@ -1057,6 +1080,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
     liveDanmaku.stop();
     messages.clear();
     superChats.clear();
+    highlights.clear();
     danmakuController?.clear();
 
     // 重新设置LiveDanmaku

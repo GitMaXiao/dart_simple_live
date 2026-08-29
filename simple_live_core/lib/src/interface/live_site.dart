@@ -10,6 +10,7 @@ import '../model/live_search_result.dart';
 import '../model/live_category.dart';
 import '../model/live_play_quality.dart';
 import '../model/live_room_item.dart';
+import '../model/live_highlight_item.dart';
 
 class LiveSite {
   /// 站点唯一ID
@@ -85,6 +86,11 @@ class LiveSite {
   /// 读取指定房间的SC
   Future<List<LiveSuperChatMessage>> getSuperChatMessage(
       {required String roomId}) {
+    return Future.value([]);
+  }
+
+  /// 读取直播间AI看点/精彩切片列表
+  Future<List<LiveHighlightItem>> getHighlights({required String roomId}) {
     return Future.value([]);
   }
 }

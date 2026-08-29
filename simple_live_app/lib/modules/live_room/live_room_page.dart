@@ -25,6 +25,7 @@ import 'package:simple_live_app/widgets/settings/settings_number.dart';
 import 'package:simple_live_app/widgets/settings/settings_switch.dart';
 import 'package:simple_live_app/widgets/superchat_card.dart';
 import 'package:simple_live_core/simple_live_core.dart';
+import 'package:url_launcher/url_launcher_string.dart';
 
 class LiveRoomPage extends GetView<LiveRoomController> {
   const LiveRoomPage({Key? key}) : super(key: key);
@@ -471,9 +472,16 @@ class LiveRoomPage extends GetView<LiveRoomController> {
   }
 
   Widget buildMessageArea() {
+    int tabLength = 3;
+    if (controller.site.id == Constant.kBiliBili) {
+      tabLength += 1;
+    }
+    if (controller.site.id == Constant.kDouyu) {
+      tabLength += 1;
+    }
     return Expanded(
       child: DefaultTabController(
-        length: controller.site.id == Constant.kBiliBili ? 4 : 3,
+        length: tabLength,
         child: Column(
           children: [
             TabBar(
@@ -491,6 +499,16 @@ class LiveRoomPage extends GetView<LiveRoomController> {
                         controller.superChats.isNotEmpty
                             ? "SC(${controller.superChats.length})"
                             : "SC",
+                      ),
+                    ),
+                  ),
+                if (controller.site.id == Constant.kDouyu)
+                  Tab(
+                    child: Obx(
+                      () => Text(
+                        controller.highlights.isNotEmpty
+                            ? "看点(${controller.highlights.length})"
+                            : "看点",
                       ),
                     ),
                   ),
@@ -545,6 +563,8 @@ class LiveRoomPage extends GetView<LiveRoomController> {
                   ),
                   if (controller.site.id == Constant.kBiliBili)
                     buildSuperChats(),
+                  if (controller.site.id == Constant.kDouyu)
+                    Builder(builder: (context) => buildHighlights(context)),
                   buildFollowList(),
                   buildSettings(),
                 ],
@@ -650,6 +670,219 @@ class LiveRoomPage extends GetView<LiveRoomController> {
           },
         ),
       ),
+    );
+  }
+
+  Widget buildHighlights(BuildContext context) {
+    return KeepAliveWrapper(
+      child: Obx(() {
+        if (controller.loadingHighlights.value) {
+          return const Center(
+            child: CircularProgressIndicator(),
+          );
+        }
+        if (controller.highlights.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Remix.movie_2_line,
+                  size: 48,
+                  color: Colors.grey,
+                ),
+                AppStyle.vGap12,
+                const Text(
+                  "暂无AI看点或精彩切片",
+                  style: TextStyle(color: Colors.grey, fontSize: 14),
+                ),
+                AppStyle.vGap12,
+                ElevatedButton.icon(
+                  onPressed: controller.loadHighlights,
+                  icon: const Icon(Remix.refresh_line, size: 16),
+                  label: const Text("刷新看点"),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return ListView.separated(
+          padding: AppStyle.edgeInsetsA12,
+          itemCount: controller.highlights.length,
+          separatorBuilder: (_, i) => AppStyle.vGap12,
+          itemBuilder: (context, index) {
+            var item = controller.highlights[index];
+            return InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () {
+                if (item.url.isNotEmpty) {
+                  launchUrlString(item.url,
+                      mode: LaunchMode.externalApplication);
+                }
+              },
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).cardColor,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: Colors.grey.withAlpha(25),
+                  ),
+                ),
+                padding: AppStyle.edgeInsetsA8,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 封面与时长
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: Stack(
+                        children: [
+                          NetImage(
+                            item.cover,
+                            width: 120,
+                            height: 68,
+                          ),
+                          if (item.duration.isNotEmpty)
+                            Positioned(
+                              right: 4,
+                              bottom: 4,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withAlpha(180),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  item.duration,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    AppStyle.hGap12,
+                    // 信息部分
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // 标题与标签
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                margin: const EdgeInsets.only(top: 2, right: 4),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                  vertical: 1,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .primary
+                                      .withAlpha(40),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  item.tag,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color:
+                                        Theme.of(context).colorScheme.primary,
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: Text(
+                                  item.title,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          AppStyle.vGap8,
+                          // 作者与发布时间
+                          Row(
+                            children: [
+                              if (item.author.isNotEmpty)
+                                Expanded(
+                                  child: Text(
+                                    item.author,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                ),
+                              if (item.createTime.isNotEmpty)
+                                Text(
+                                  item.createTime,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                            ],
+                          ),
+                          AppStyle.vGap4,
+                          // 播放量与弹幕数
+                          Row(
+                            children: [
+                              const Icon(
+                                Remix.play_line,
+                                size: 12,
+                                color: Colors.grey,
+                              ),
+                              AppStyle.hGap4,
+                              Text(
+                                item.viewCount,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                              AppStyle.hGap8,
+                              const Icon(
+                                Remix.chat_1_line,
+                                size: 12,
+                                color: Colors.grey,
+                              ),
+                              AppStyle.hGap4,
+                              Text(
+                                item.danmuCount,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      }),
     );
   }
 

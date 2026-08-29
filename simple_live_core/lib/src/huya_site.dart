@@ -666,6 +666,11 @@ class HuyaSite implements LiveSite {
     //尚不支持
     return Future.value([]);
   }
+
+  @override
+  Future<List<LiveHighlightItem>> getHighlights({required String roomId}) {
+    return Future.value([]);
+  }
 }
 
 class HuyaUrlDataModel {

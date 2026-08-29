@@ -15,6 +15,7 @@ import 'package:simple_live_core/src/model/live_search_result.dart';
 import 'package:simple_live_core/src/model/live_room_detail.dart';
 import 'package:simple_live_core/src/model/live_play_quality.dart';
 import 'package:simple_live_core/src/model/live_category_result.dart';
+import 'package:simple_live_core/src/model/live_highlight_item.dart';
 import 'package:html_unescape/html_unescape.dart';
 import 'package:simple_live_core/src/scripts/douyu_sign.dart';
 
@@ -384,6 +385,77 @@ class DouyuSite implements LiveSite {
   }) {
     //尚不支持
     return Future.value([]);
+  }
+
+  @override
+  Future<List<LiveHighlightItem>> getHighlights({
+    required String roomId,
+  }) async {
+    try {
+      // 1. 获取房间主播信息
+      var roomInfo = await _getRoomInfo(roomId);
+      var anchorName = roomInfo["owner_name"]?.toString() ?? "";
+      var roomName = roomInfo["room_name"]?.toString() ?? "";
+
+      List<LiveHighlightItem> highlights = [];
+
+      // 2. 如果存在主播名称或房间名称，搜索官方看点与精彩切片
+      var searchKey = anchorName.isNotEmpty ? anchorName : roomName;
+      if (searchKey.isNotEmpty) {
+        var searchResult = await HttpClient.instance.getJson(
+          "https://www.douyu.com/japi/search/api/searchVideo",
+          queryParameters: {
+            "kw": searchKey,
+            "page": 1,
+            "pageSize": 20,
+          },
+          header: {
+            'referer': 'https://www.douyu.com/$roomId',
+            'user-agent':
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          },
+        );
+
+        if (searchResult is Map && searchResult["data"] != null) {
+          var relateVideo = searchResult["data"]["relateVideo"];
+          if (relateVideo is List) {
+            for (var item in relateVideo) {
+              if (item is Map) {
+                var hashId = item["hashId"]?.toString() ?? item["vid"]?.toString() ?? "";
+                if (hashId.isEmpty) continue;
+                var title = item["title"]?.toString() ?? "";
+                var isAi = item["is_ai"] == 1 ||
+                    title.contains("看点") ||
+                    title.contains("AI") ||
+                    title.contains("高光") ||
+                    title.contains("集锦") ||
+                    title.contains("高能");
+
+                highlights.add(
+                  LiveHighlightItem(
+                    id: hashId,
+                    title: HtmlUnescape().convert(title),
+                    cover: item["cover"]?.toString() ?? "",
+                    duration: item["duration"]?.toString() ?? "",
+                    createTime: item["publishTime"]?.toString() ?? "",
+                    author: item["owner"]?.toString() ?? anchorName,
+                    url: item["url"]?.toString() ?? "https://v.douyu.com/show/$hashId",
+                    tag: isAi ? "AI看点" : "精彩时刻",
+                    viewCount: item["viewCount"]?.toString() ?? "0",
+                    danmuCount: item["danmu"]?.toString() ?? "0",
+                  ),
+                );
+              }
+            }
+          }
+        }
+      }
+
+      return highlights;
+    } catch (e) {
+      print("获取斗鱼看点失败: $e");
+      return [];
+    }
   }
 }
 
