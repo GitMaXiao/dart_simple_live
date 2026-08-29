@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
+import 'package:simple_live_tv_app/app/app_focus_node.dart';
 import 'package:simple_live_tv_app/app/constant.dart';
 import 'package:simple_live_tv_app/app/controller/app_settings_controller.dart';
 import 'package:simple_live_tv_app/app/controller/base_controller.dart';
@@ -13,6 +14,7 @@ import 'package:simple_live_tv_app/models/db/history.dart';
 import 'package:simple_live_tv_app/services/bilibili_account_service.dart';
 import 'package:simple_live_tv_app/services/db_service.dart';
 import 'package:simple_live_tv_app/services/signalr_service.dart';
+import 'package:simple_live_tv_app/services/sync_service.dart';
 
 class SyncController extends BaseController {
   final SignalRService signalR = SignalRService();
@@ -31,38 +33,61 @@ class SyncController extends BaseController {
   Rx<SignalRConnectionState> state =
       Rx<SignalRConnectionState>(SignalRConnectionState.connecting);
 
+  final backFocusNode = AppFocusNode();
+  final remoteRetryFocusNode = AppFocusNode();
+  final localRetryFocusNode = AppFocusNode();
+
   @override
   void onInit() {
+    listenSignalR();
     connect();
     super.onInit();
   }
 
   void connect() async {
-    listenSignalR();
-    await signalR.connect();
-    if (signalR.state == SignalRConnectionState.connected) {
-      createRoom();
+    state.value = SignalRConnectionState.connecting;
+    currentRoomId.value = "--";
+    try {
+      await signalR.connect();
+      if (signalR.state == SignalRConnectionState.connected) {
+        createRoom();
+      } else {
+        state.value = SignalRConnectionState.disconnected;
+      }
+    } catch (e) {
+      Log.e("SignalR connect error: $e", StackTrace.current);
+      state.value = SignalRConnectionState.disconnected;
     }
+  }
+
+  void retryRemote() {
+    connect();
+  }
+
+  void retryLocal() async {
+    SmartDialog.showLoading(msg: "正在刷新局域网服务...");
+    await SyncService.instance.restartServer();
+    SmartDialog.dismiss();
   }
 
   void createRoom() async {
     try {
       var resp = await signalR.createRoom();
-      if (resp.isSuccess) {
+      if (resp.isSuccess && resp.data != null && resp.data!.isNotEmpty) {
         currentRoomId.value = resp.data!;
         _startTimer();
       } else {
-        SmartDialog.showToast(resp.message);
-        Get.back();
+        SmartDialog.showToast(resp.message.isNotEmpty ? resp.message : "创建房间失败");
+        state.value = SignalRConnectionState.disconnected;
       }
     } catch (e) {
-      SmartDialog.showToast("创建房间失败");
-      Get.back();
+      SmartDialog.showToast("创建房间失败，请检查网络");
+      state.value = SignalRConnectionState.disconnected;
     }
   }
 
   void _startTimer() {
-    // 倒计时5分钟，自动关闭页面
+    _timer?.cancel();
     countDown.value = 600;
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       countDown--;
@@ -79,7 +104,8 @@ class SyncController extends BaseController {
     });
     _roomDestroyedSubscription = signalR.onRoomDestroyedStream.listen((roomId) {
       SmartDialog.showToast("房间已被销毁");
-      Get.back();
+      state.value = SignalRConnectionState.disconnected;
+      currentRoomId.value = "--";
     });
     _roomUserUpdatedSubscription = signalR.onRoomUserUpdatedStream.listen(
       (roomUsers) {
@@ -112,7 +138,6 @@ class SyncController extends BaseController {
       }
       SmartDialog.showToast('已同步关注用户列表');
       EventBus.instance.emit(Constant.kUpdateFollow, 0);
-      SmartDialog.showToast("已同步关注列表");
     } catch (e) {
       SmartDialog.showToast("同步失败:$e");
       Log.logPrint(e);

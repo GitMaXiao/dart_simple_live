@@ -142,6 +142,10 @@ class SyncService extends GetxService {
   /// 初始化HTTP服务
   void initServer() async {
     try {
+      if (server != null) {
+        await server?.close(force: true);
+        server = null;
+      }
       var serverRouter = Router();
       serverRouter.get('/', _helloRequest);
       serverRouter.get('/info', _infoRequest);
@@ -150,25 +154,32 @@ class SyncService extends GetxService {
       serverRouter.post('/sync/blocked_word', _syncBlockedWordReuqest);
       serverRouter.post('/sync/account/bilibili', _syncBiliAccountReuqest);
 
-      var server = await shelf_io.serve(
+      server = await shelf_io.serve(
         serverRouter,
         InternetAddress.anyIPv4,
         httpPort,
       );
 
       // Enable content compression
-      server.autoCompress = true;
+      server?.autoCompress = true;
 
       httpRunning.value = true;
+      httpErrorMsg.value = "";
 
       var ip = await getLocalIP();
       ipAddress.value = ip;
 
-      Log.d('Serving at http://$ip:${server.port}');
+      Log.d('Serving at http://$ip:${server?.port}');
     } catch (e) {
+      httpRunning.value = false;
       httpErrorMsg.value = e.toString();
       Log.logPrint(e);
     }
+  }
+
+  /// 重启HTTP服务
+  Future<void> restartServer() async {
+    initServer();
   }
 
   /// 测试服务能否正常访问

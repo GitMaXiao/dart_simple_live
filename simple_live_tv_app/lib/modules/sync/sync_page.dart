@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import 'package:simple_live_tv_app/app/app_focus_node.dart';
 import 'package:simple_live_tv_app/app/app_style.dart';
 import 'package:simple_live_tv_app/modules/sync/sync_controller.dart';
 import 'package:simple_live_tv_app/services/signalr_service.dart';
@@ -24,7 +23,7 @@ class SyncPage extends GetView<SyncController> {
             children: [
               AppStyle.hGap48,
               HighlightButton(
-                focusNode: AppFocusNode(),
+                focusNode: controller.backFocusNode,
                 iconData: Icons.arrow_back,
                 text: "返回",
                 autofocus: true,
@@ -47,6 +46,7 @@ class SyncPage extends GetView<SyncController> {
           Expanded(
             child: Row(
               children: [
+                // 远程同步模块
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
@@ -60,78 +60,120 @@ class SyncPage extends GetView<SyncController> {
                         ),
                       ),
                       AppStyle.vGap16,
-                      Obx(
-                        () => Visibility(
-                          visible: SyncService.instance.httpRunning.value,
-                          child: GestureDetector(
-                            onTap: () {
-                              Get.back();
-                            },
-                            child: QrImageView(
-                              data: controller.currentRoomId.value,
-                              version: QrVersions.auto,
-                              backgroundColor: Colors.white,
-                              padding: AppStyle.edgeInsetsA24,
-                              size: 420.0.w,
+                      Obx(() {
+                        var isConnected = controller.state.value ==
+                                SignalRConnectionState.connected &&
+                            controller.currentRoomId.value.isNotEmpty &&
+                            controller.currentRoomId.value != "--";
+
+                        if (isConnected) {
+                          return QrImageView(
+                            data: controller.currentRoomId.value,
+                            version: QrVersions.auto,
+                            backgroundColor: Colors.white,
+                            padding: AppStyle.edgeInsetsA24,
+                            size: 380.0.w,
+                          );
+                        } else if (controller.state.value ==
+                            SignalRConnectionState.connecting) {
+                          return Container(
+                            width: 380.w,
+                            height: 380.w,
+                            decoration: BoxDecoration(
+                              color: Colors.white10,
+                              borderRadius: AppStyle.radius16,
                             ),
-                          ),
-                        ),
-                      ),
-                      AppStyle.vGap24,
-                      Obx(
-                        () => Visibility(
-                          visible: controller.state.value ==
-                              SignalRConnectionState.connected,
-                          child: Text.rich(
-                            TextSpan(
-                              text: '房间号：',
+                            child: const Center(
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                              ),
+                            ),
+                          );
+                        } else {
+                          return Container(
+                            width: 380.w,
+                            height: 380.w,
+                            decoration: BoxDecoration(
+                              color: Colors.white10,
+                              borderRadius: AppStyle.radius16,
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                TextSpan(
-                                  text: controller.currentRoomId.value,
-                                  style: AppStyle.textStyleWhite
-                                      .copyWith(fontWeight: FontWeight.bold),
-                                )
+                                Icon(
+                                  Icons.cloud_off,
+                                  size: 64.w,
+                                  color: Colors.white54,
+                                ),
+                                AppStyle.vGap16,
+                                Text(
+                                  "远程连接失败",
+                                  style: AppStyle.textStyleWhite,
+                                ),
+                                AppStyle.vGap16,
+                                HighlightButton(
+                                  focusNode: controller.remoteRetryFocusNode,
+                                  iconData: Icons.refresh,
+                                  text: "重新连接",
+                                  onTap: () {
+                                    controller.retryRemote();
+                                  },
+                                ),
                               ],
                             ),
+                          );
+                        }
+                      }),
+                      AppStyle.vGap24,
+                      Obx(() {
+                        if (controller.state.value ==
+                                SignalRConnectionState.connected &&
+                            controller.currentRoomId.value != "--") {
+                          return Column(
+                            children: [
+                              Text.rich(
+                                TextSpan(
+                                  text: '房间号：',
+                                  children: [
+                                    TextSpan(
+                                      text: controller.currentRoomId.value,
+                                      style: AppStyle.textStyleWhite.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 28.w,
+                                      ),
+                                    )
+                                  ],
+                                ),
+                                style: AppStyle.textStyleWhite,
+                                textAlign: TextAlign.center,
+                              ),
+                              AppStyle.vGap8,
+                              Text(
+                                "${controller.countDown}秒后自动关闭 | 扫码或输入房间号连接",
+                                style: AppStyle.textStyleWhite.copyWith(
+                                  color: Colors.white70,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          );
+                        } else if (controller.state.value ==
+                            SignalRConnectionState.connecting) {
+                          return Text(
+                            '正在连接远程服务并创建房间...',
                             style: AppStyle.textStyleWhite,
                             textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ),
-                      Obx(
-                        () => Visibility(
-                          visible: controller.state.value ==
-                              SignalRConnectionState.disconnected,
-                          child: Text(
-                            '连接已断开，请尝试重进此页面',
-                            style: AppStyle.textStyleWhite,
+                          );
+                        } else {
+                          return Text(
+                            '远程同步服务器连接失败，请检查网络或重试',
+                            style: AppStyle.textStyleWhite.copyWith(
+                              color: Colors.redAccent,
+                            ),
                             textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ),
-                      Obx(
-                        () => Visibility(
-                          visible: controller.state.value ==
-                              SignalRConnectionState.connecting,
-                          child: Text(
-                            '正在创建房间...',
-                            style: AppStyle.textStyleWhite,
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ),
-                      AppStyle.vGap12,
-                      Obx(
-                        () => Visibility(
-                          visible: controller.state.value ==
-                              SignalRConnectionState.connected,
-                          child: Text(
-                            "${controller.countDown}秒后将自动关闭服务\n请扫描二维码或输入房间号进行连接",
-                            style: AppStyle.textStyleWhite,
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ),
+                          );
+                        }
+                      }),
                     ],
                   ),
                 ),
@@ -141,6 +183,7 @@ class SyncPage extends GetView<SyncController> {
                   endIndent: 120.w,
                   indent: 120.w,
                 ),
+                // 局域网同步模块
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
@@ -154,55 +197,81 @@ class SyncPage extends GetView<SyncController> {
                         ),
                       ),
                       AppStyle.vGap16,
-                      Obx(
-                        () => Visibility(
-                          visible: SyncService.instance.httpRunning.value,
-                          child: GestureDetector(
-                            onTap: () {
-                              Get.back();
-                            },
-                            child: QrImageView(
-                              data: SyncService.instance.ipAddress.value,
-                              version: QrVersions.auto,
-                              backgroundColor: Colors.white,
-                              padding: AppStyle.edgeInsetsA24,
-                              size: 420.0.w,
+                      Obx(() {
+                        if (SyncService.instance.httpRunning.value &&
+                            SyncService.instance.ipAddress.value.isNotEmpty) {
+                          return QrImageView(
+                            data: SyncService.instance.ipAddress.value,
+                            version: QrVersions.auto,
+                            backgroundColor: Colors.white,
+                            padding: AppStyle.edgeInsetsA24,
+                            size: 380.0.w,
+                          );
+                        } else {
+                          return Container(
+                            width: 380.w,
+                            height: 380.w,
+                            decoration: BoxDecoration(
+                              color: Colors.white10,
+                              borderRadius: AppStyle.radius16,
                             ),
-                          ),
-                        ),
-                      ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.wifi_off,
+                                  size: 64.w,
+                                  color: Colors.white54,
+                                ),
+                                AppStyle.vGap16,
+                                Text(
+                                  "局域网服务未启动",
+                                  style: AppStyle.textStyleWhite,
+                                ),
+                                AppStyle.vGap16,
+                                HighlightButton(
+                                  focusNode: controller.localRetryFocusNode,
+                                  iconData: Icons.refresh,
+                                  text: "重新启动",
+                                  onTap: () {
+                                    controller.retryLocal();
+                                  },
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+                      }),
                       AppStyle.vGap24,
-                      Obx(
-                        () => Visibility(
-                          visible: SyncService.instance.httpRunning.value,
-                          child: Text(
-                            '服务已启动：${SyncService.instance.ipAddress.value.split(';').map((e) => '$e:${SyncService.httpPort}').join('；')}',
-                            style: AppStyle.textStyleWhite,
+                      Obx(() {
+                        if (SyncService.instance.httpRunning.value) {
+                          return Column(
+                            children: [
+                              Text(
+                                '服务已启动：${SyncService.instance.ipAddress.value.split(';').map((e) => '$e:${SyncService.httpPort}').join('；')}',
+                                style: AppStyle.textStyleWhite,
+                                textAlign: TextAlign.center,
+                              ),
+                              AppStyle.vGap8,
+                              Text(
+                                "请确保手机与电视在同一Wi-Fi下并扫描二维码",
+                                style: AppStyle.textStyleWhite.copyWith(
+                                  color: Colors.white70,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          );
+                        } else {
+                          return Text(
+                            'HTTP服务未启动：${SyncService.instance.httpErrorMsg}，请点击重试',
+                            style: AppStyle.textStyleWhite.copyWith(
+                              color: Colors.redAccent,
+                            ),
                             textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ),
-                      Obx(
-                        () => Visibility(
-                          visible: !SyncService.instance.httpRunning.value,
-                          child: Text(
-                            'HTTP服务未启动：${SyncService.instance.httpErrorMsg}，请尝试重启应用',
-                            style: AppStyle.textStyleWhite,
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ),
-                      AppStyle.vGap12,
-                      Obx(
-                        () => Visibility(
-                          visible: SyncService.instance.httpRunning.value,
-                          child: Text(
-                            "请扫描二维码或输入IP地址进行连接\n建立连接后可在APP端选择需要同步至TV端的数据",
-                            style: AppStyle.textStyleWhite,
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ),
+                          );
+                        }
+                      }),
                     ],
                   ),
                 ),
