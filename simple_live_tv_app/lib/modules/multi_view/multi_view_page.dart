@@ -146,7 +146,7 @@ class TVMultiViewPage extends GetView<TVMultiViewController> {
 
   Widget _buildItemView(BuildContext context, int index) {
     var item = controller.items[index];
-    var focusNode = AppFocusNode();
+    var focusNode = controller.focusNodes[index];
 
     return Focus(
       focusNode: focusNode,
@@ -155,6 +155,19 @@ class TVMultiViewPage extends GetView<TVMultiViewController> {
         if (hasFocus) {
           controller.setFocus(index);
         }
+      },
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent) {
+          if (event.logicalKey == LogicalKeyboardKey.select ||
+              event.logicalKey == LogicalKeyboardKey.enter ||
+              event.logicalKey == LogicalKeyboardKey.space ||
+              event.logicalKey == LogicalKeyboardKey.numpadEnter ||
+              event.logicalKey == LogicalKeyboardKey.gameButtonA) {
+            _handleItemClick(context, item, index);
+            return KeyEventResult.handled;
+          }
+        }
+        return KeyEventResult.ignored;
       },
       child: Builder(
         builder: (context) {
@@ -277,17 +290,19 @@ class TVMultiViewPage extends GetView<TVMultiViewController> {
     );
   }
 
-  void _handleItemClick(BuildContext context, MultiViewItemController item, int index) {
+  void _handleItemClick(BuildContext context, MultiViewItemController item, int index) async {
     if (!item.hasRoom.value) {
-      controller.selectRoomForItem(index);
+      await controller.selectRoomForItem(index);
     } else {
-      TVMultiViewActionDialog.show(
+      await TVMultiViewActionDialog.show(
         item: item,
         onMakePrimary: () => controller.makePrimary(index),
         onReplace: () => controller.selectRoomForItem(index),
         onCloseScreen: () => item.clearRoom(),
       );
     }
+    // 对话框关闭后，还原遥控器焦点至当前分屏
+    controller.focusNodes[index].requestFocus();
   }
 
   Widget _buildEmptySlot(int index, bool hasFocus) {

@@ -1,5 +1,6 @@
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
+import 'package:simple_live_tv_app/app/app_focus_node.dart';
 import 'package:simple_live_tv_app/app/sites.dart';
 import 'package:simple_live_tv_app/modules/multi_view/multi_view_item_controller.dart';
 import 'package:simple_live_tv_app/modules/multi_view/widgets/multi_view_select_dialog.dart';
@@ -17,6 +18,10 @@ class TVMultiViewController extends GetxController {
   final RxBool isSoloAudioMode = true.obs; // 默认仅主焦点发声
 
   late final List<MultiViewItemController> items;
+  late final List<AppFocusNode> focusNodes = List.generate(
+    4,
+    (_) => AppFocusNode(),
+  );
 
   @override
   void onInit() {
@@ -158,6 +163,9 @@ class TVMultiViewController extends GetxController {
     WakelockPlus.disable();
     for (var item in items) {
       item.dispose();
+    }
+    for (var node in focusNodes) {
+      node.dispose();
     }
     super.onClose();
   }
