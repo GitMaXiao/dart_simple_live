@@ -64,8 +64,14 @@ class HighlightWidget extends StatelessWidget {
             }
             if (e.logicalKey == LogicalKeyboardKey.enter ||
                 e.logicalKey == LogicalKeyboardKey.select ||
-                e.logicalKey == LogicalKeyboardKey.space) {
-              return onTap?.call() ?? KeyEventResult.ignored;
+                e.logicalKey == LogicalKeyboardKey.space ||
+                e.logicalKey == LogicalKeyboardKey.numpadEnter ||
+                e.logicalKey == LogicalKeyboardKey.gameButtonA ||
+                e.logicalKey == LogicalKeyboardKey.gameButtonSelect) {
+              if (onTap != null) {
+                onTap!.call();
+                return KeyEventResult.handled;
+              }
             }
           }
 

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:media_kit_video/media_kit_video.dart';
@@ -10,6 +9,7 @@ import 'package:simple_live_tv_app/modules/multi_view/multi_view_controller.dart
 import 'package:simple_live_tv_app/modules/multi_view/multi_view_item_controller.dart';
 import 'package:simple_live_tv_app/modules/multi_view/widgets/multi_view_action_dialog.dart';
 import 'package:simple_live_tv_app/widgets/button/highlight_button.dart';
+import 'package:simple_live_tv_app/widgets/highlight_widget.dart';
 
 class TVMultiViewPage extends GetView<TVMultiViewController> {
   const TVMultiViewPage({super.key});
@@ -18,63 +18,56 @@ class TVMultiViewPage extends GetView<TVMultiViewController> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: Shortcuts(
-        shortcuts: <LogicalKeySet, Intent>{
-          LogicalKeySet(LogicalKeyboardKey.select): const ActivateIntent(),
-          LogicalKeySet(LogicalKeyboardKey.enter): const ActivateIntent(),
-          LogicalKeySet(LogicalKeyboardKey.contextMenu): const MenuIntent(),
-        },
-        child: Column(
-          children: [
-            // 顶部遥控器控制栏
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: 32.w, vertical: 12.h),
-              color: const Color(0xFF141418),
-              child: Row(
-                children: [
-                  HighlightButton(
+      body: Column(
+        children: [
+          // 顶部遥控器控制栏
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 32.w, vertical: 12.h),
+            color: const Color(0xFF141418),
+            child: Row(
+              children: [
+                HighlightButton(
+                  focusNode: AppFocusNode(),
+                  iconData: Icons.arrow_back,
+                  text: "退出",
+                  onTap: () => Get.back(),
+                ),
+                AppStyle.hGap24,
+                Text(
+                  "多屏同播 / 多视角",
+                  style: TextStyle(color: Colors.white, fontSize: 24.sp, fontWeight: FontWeight.bold),
+                ),
+                const Spacer(),
+                // 布局切换
+                Obx(
+                  () => HighlightButton(
                     focusNode: AppFocusNode(),
-                    iconData: Icons.arrow_back,
-                    text: "退出",
-                    onTap: () => Get.back(),
+                    iconData: Remix.layout_grid_line,
+                    text: _getLayoutName(controller.layout.value),
+                    onTap: () => controller.cycleLayout(),
                   ),
-                  AppStyle.hGap24,
-                  Text(
-                    "多屏同播 / 多视角",
-                    style: TextStyle(color: Colors.white, fontSize: 24.sp, fontWeight: FontWeight.bold),
+                ),
+                AppStyle.hGap24,
+                // 音频模式
+                Obx(
+                  () => HighlightButton(
+                    focusNode: AppFocusNode(),
+                    iconData: controller.isSoloAudioMode.value
+                        ? Remix.volume_up_line
+                        : Remix.sound_module_line,
+                    text: controller.isSoloAudioMode.value ? "焦点发声" : "多路混音",
+                    selected: !controller.isSoloAudioMode.value,
+                    onTap: () => controller.toggleAudioMode(),
                   ),
-                  const Spacer(),
-                  // 布局切换
-                  Obx(
-                    () => HighlightButton(
-                      focusNode: AppFocusNode(),
-                      iconData: Remix.layout_grid_line,
-                      text: _getLayoutName(controller.layout.value),
-                      onTap: () => controller.cycleLayout(),
-                    ),
-                  ),
-                  AppStyle.hGap24,
-                  // 音频模式
-                  Obx(
-                    () => HighlightButton(
-                      focusNode: AppFocusNode(),
-                      iconData: controller.isSoloAudioMode.value
-                          ? Remix.volume_up_line
-                          : Remix.sound_module_line,
-                      text: controller.isSoloAudioMode.value ? "焦点发声" : "多路混音",
-                      selected: !controller.isSoloAudioMode.value,
-                      onTap: () => controller.toggleAudioMode(),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-            // 分屏展示区
-            Expanded(
-              child: Obx(() => _buildLayout(context)),
-            ),
-          ],
-        ),
+          ),
+          // 分屏展示区
+          Expanded(
+            child: Obx(() => _buildLayout(context)),
+          ),
+        ],
       ),
     );
   }
@@ -148,141 +141,129 @@ class TVMultiViewPage extends GetView<TVMultiViewController> {
     var item = controller.items[index];
     var focusNode = controller.focusNodes[index];
 
-    return Focus(
+    return HighlightWidget(
       focusNode: focusNode,
       autofocus: index == 0,
+      foucsedColor: Colors.amberAccent.withAlpha(40),
+      borderRadius: BorderRadius.circular(8.w),
       onFocusChange: (hasFocus) {
         if (hasFocus) {
           controller.setFocus(index);
         }
       },
-      onKeyEvent: (node, event) {
-        if (event is KeyDownEvent) {
-          if (event.logicalKey == LogicalKeyboardKey.select ||
-              event.logicalKey == LogicalKeyboardKey.enter ||
-              event.logicalKey == LogicalKeyboardKey.space ||
-              event.logicalKey == LogicalKeyboardKey.numpadEnter ||
-              event.logicalKey == LogicalKeyboardKey.gameButtonA) {
-            _handleItemClick(context, item, index);
-            return KeyEventResult.handled;
-          }
-        }
-        return KeyEventResult.ignored;
+      onTap: () {
+        _handleItemClick(context, item, index);
       },
-      child: Builder(
-        builder: (context) {
-          final hasFocus = Focus.of(context).hasFocus;
-          return GestureDetector(
-            onTap: () {
-              _handleItemClick(context, item, index);
-            },
-            child: Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFF101014),
-                border: Border.all(
-                  color: hasFocus ? Colors.amberAccent : Colors.transparent,
-                  width: 4.w,
-                ),
+      child: Obx(
+        () {
+          final isFocused = focusNode.isFoucsed.value;
+          return Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFF101014),
+              border: Border.all(
+                color: isFocused ? Colors.amberAccent : Colors.white12,
+                width: isFocused ? 4.w : 1.w,
               ),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  // 视频画面
-                  if (item.hasRoom.value)
-                    Video(
-                      controller: item.videoController,
-                      controls: NoVideoControls,
-                    )
-                  else
-                    _buildEmptySlot(index, hasFocus),
+              borderRadius: BorderRadius.circular(8.w),
+            ),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                // 视频画面
+                if (item.hasRoom.value)
+                  Video(
+                    controller: item.videoController,
+                    controls: NoVideoControls,
+                  )
+                else
+                  _buildEmptySlot(index, isFocused),
 
-                  // 加载状态
-                  if (item.isLoading.value)
-                    const Center(
-                      child: CircularProgressIndicator(color: Colors.amberAccent),
+                // 加载状态
+                if (item.isLoading.value)
+                  const Center(
+                    child: CircularProgressIndicator(color: Colors.amberAccent),
+                  ),
+
+                // 错误状态
+                if (item.isError.value)
+                  Center(
+                    child: Container(
+                      padding: AppStyle.edgeInsetsA16,
+                      decoration: BoxDecoration(
+                        color: Colors.black87,
+                        borderRadius: BorderRadius.circular(12.w),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.error_outline, color: Colors.redAccent, size: 40.w),
+                          AppStyle.vGap8,
+                          Text(
+                            item.errorMsg.value,
+                            style: TextStyle(color: Colors.white70, fontSize: 18.sp),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
                     ),
+                  ),
 
-                  // 错误状态
-                  if (item.isError.value)
-                    Center(
-                      child: Container(
-                        padding: AppStyle.edgeInsetsA16,
-                        decoration: BoxDecoration(
-                          color: Colors.black87,
-                          borderRadius: BorderRadius.circular(12.w),
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.error_outline, color: Colors.redAccent, size: 40.w),
-                            AppStyle.vGap8,
+                // 角标 (视角标识与音量状态)
+                if (item.hasRoom.value)
+                  Positioned(
+                    top: 8.h,
+                    left: 8.w,
+                    child: Container(
+                      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                      decoration: BoxDecoration(
+                        color: index == 0 ? Colors.blueAccent : Colors.black87,
+                        borderRadius: BorderRadius.circular(6.w),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            index == 0 ? "主视角 (1)" : "视角 (${index + 1})",
+                            style: TextStyle(color: Colors.white, fontSize: 16.sp, fontWeight: FontWeight.bold),
+                          ),
+                          if (item.isMuted.value || item.volume.value == 0) ...[
+                            AppStyle.hGap8,
+                            Icon(Remix.volume_mute_line, color: Colors.redAccent, size: 16.sp),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+
+                // 底部半透明信息浮层
+                if (item.hasRoom.value)
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: Container(
+                      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                      color: Colors.black.withAlpha(180),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              "${item.detail.value?.userName ?? item.roomId} - ${item.detail.value?.title ?? ''}",
+                              style: TextStyle(color: Colors.white, fontSize: 16.sp),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (isFocused)
                             Text(
-                              item.errorMsg.value,
-                              style: TextStyle(color: Colors.white70, fontSize: 18.sp),
-                              textAlign: TextAlign.center,
+                              "按 OK 键打开控制菜单",
+                              style: TextStyle(color: Colors.amberAccent, fontSize: 14.sp),
                             ),
-                          ],
-                        ),
+                        ],
                       ),
                     ),
-
-                  // 角标 (视角标识与音量状态)
-                  if (item.hasRoom.value)
-                    Positioned(
-                      top: 8.h,
-                      left: 8.w,
-                      child: Container(
-                        padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
-                        decoration: BoxDecoration(
-                          color: index == 0 ? Colors.blueAccent : Colors.black87,
-                          borderRadius: BorderRadius.circular(6.w),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              index == 0 ? "主视角 (1)" : "视角 (${index + 1})",
-                              style: TextStyle(color: Colors.white, fontSize: 16.sp, fontWeight: FontWeight.bold),
-                            ),
-                            if (item.isMuted.value || item.volume.value == 0) ...[
-                              AppStyle.hGap8,
-                              Icon(Remix.volume_mute_line, color: Colors.redAccent, size: 16.sp),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ),
-
-                  // 底部半透明信息浮层
-                  if (item.hasRoom.value)
-                    Positioned(
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      child: Container(
-                        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-                        color: Colors.black.withAlpha(160),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                "${item.detail.value?.userName ?? item.roomId} - ${item.detail.value?.title ?? ''}",
-                                style: TextStyle(color: Colors.white, fontSize: 16.sp),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            if (hasFocus)
-                              Text(
-                                "按 OK 键打开控制菜单",
-                                style: TextStyle(color: Colors.amberAccent, fontSize: 14.sp),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-                ],
-              ),
+                  ),
+              ],
             ),
           );
         },
@@ -327,8 +308,4 @@ class TVMultiViewPage extends GetView<TVMultiViewController> {
       ),
     );
   }
-}
-
-class MenuIntent extends Intent {
-  const MenuIntent();
 }

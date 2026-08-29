@@ -148,11 +148,11 @@ Widget buildControls(VideoState videoState, LiveRoomController controller) {
                         style: AppStyle.textStyleWhite,
                       ),
                     ),
-                    //弹幕开关
+                    //弹幕开关与连接状态
                     AppStyle.hGap32,
                     Obx(
                       () => Text(
-                        "弹幕: ${controller.showDanmakuState.value ? "开" : "关"}",
+                        "弹幕: ${controller.showDanmakuState.value ? (controller.danmakuConnected.value ? '开 (已连接)' : (controller.danmakuConnecting.value ? '开 (连接中...)' : '开 (未连接)')) : '关'}",
                         style: AppStyle.textStyleWhite,
                       ),
                     ),
@@ -369,20 +369,42 @@ void showPlayerSettings(LiveRoomController controller) {
           child: ListView(
             padding: AppStyle.edgeInsetsA48,
             children: [
-              HighlightButton(
-                focusNode: AppFocusNode(),
-                iconData: Icons.grid_view,
-                text: "以多屏同播打开",
-                onTap: () {
-                  Get.back();
-                  Get.toNamed(
-                    RoutePath.kMultiView,
-                    arguments: {
-                      'site': controller.site,
-                      'roomId': controller.roomId,
-                    },
-                  );
-                },
+              Row(
+                children: [
+                  Expanded(
+                    child: HighlightButton(
+                      focusNode: AppFocusNode(),
+                      iconData: Icons.grid_view,
+                      text: "多屏同播",
+                      onTap: () {
+                        Get.back();
+                        Get.toNamed(
+                          RoutePath.kMultiView,
+                          arguments: {
+                            'site': controller.site,
+                            'roomId': controller.roomId,
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                  AppStyle.hGap24,
+                  Expanded(
+                    child: Obx(
+                      () => HighlightButton(
+                        focusNode: AppFocusNode(),
+                        iconData: Icons.refresh,
+                        text: controller.danmakuConnecting.value
+                            ? "连接中..."
+                            : (controller.danmakuConnected.value ? "重连弹幕" : "重连弹幕(断开)"),
+                        selected: !controller.danmakuConnected.value,
+                        onTap: () {
+                          controller.reconnectDanmaku();
+                        },
+                      ),
+                    ),
+                  ),
+                ],
               ),
               AppStyle.vGap24,
               Obx(
@@ -477,34 +499,28 @@ void showPlayerSettings(LiveRoomController controller) {
                 ),
               ),
               Divider(color: Colors.grey.withAlpha(50), height: 36.w),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Padding(
-                    padding: AppStyle.edgeInsetsH20,
-                    child: Text(
-                      "弹幕",
-                      style: AppStyle.textStyleWhite.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+              Padding(
+                padding: AppStyle.edgeInsetsH20,
+                child: Text(
+                  "弹幕设置",
+                  style: AppStyle.textStyleWhite.copyWith(
+                    fontWeight: FontWeight.bold,
                   ),
-                  const Spacer(),
-                  Obx(
-                    () => HighlightButton(
-                      focusNode: AppFocusNode(),
-                      iconData: Icons.refresh,
-                      text: controller.danmakuConnecting.value
-                          ? "弹幕连接中..."
-                          : (controller.danmakuConnected.value ? "重连弹幕" : "弹幕未连接(点击重连)"),
-                      selected: !controller.danmakuConnected.value,
-                      onTap: () {
-                        controller.reconnectDanmaku();
-                      },
-                    ),
-                  ),
-                  AppStyle.hGap20,
-                ],
+                ),
+              ),
+              AppStyle.vGap24,
+              Obx(
+                () => HighlightButton(
+                  focusNode: AppFocusNode(),
+                  iconData: Icons.refresh,
+                  text: controller.danmakuConnecting.value
+                      ? "弹幕服务器连接中..."
+                      : (controller.danmakuConnected.value ? "弹幕服务正常 (按 OK 键重新连接)" : "弹幕连接已断开 (按 OK 键重新连接)"),
+                  selected: !controller.danmakuConnected.value,
+                  onTap: () {
+                    controller.reconnectDanmaku();
+                  },
+                ),
               ),
               AppStyle.vGap24,
               Obx(
