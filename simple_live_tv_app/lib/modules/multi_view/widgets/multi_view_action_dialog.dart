@@ -178,10 +178,22 @@ class TVMultiViewActionDialog extends StatelessWidget {
                     item.refreshStream();
                   },
                 ),
+                // 分屏弹幕开关
+                Obx(
+                  () => HighlightButton(
+                    focusNode: AppFocusNode(),
+                    iconData: item.showDanmaku.value ? Remix.chat_1_line : Remix.chat_off_line,
+                    text: item.showDanmaku.value ? "弹幕: 开启" : "弹幕: 关闭",
+                    selected: !item.showDanmaku.value,
+                    onTap: () {
+                      item.toggleDanmaku();
+                    },
+                  ),
+                ),
                 // 重连弹幕
                 HighlightButton(
                   focusNode: AppFocusNode(),
-                  iconData: Remix.chat_3_line,
+                  iconData: Remix.refresh_line,
                   text: "重连弹幕",
                   onTap: () {
                     Get.back();

@@ -13,11 +13,19 @@ enum MultiViewLayout {
   four, // 4宫格
 }
 
+enum MultiViewDanmakuMode {
+  none, // 关闭弹幕
+  primary, // 仅主视角(1)
+  focused, // 仅当前焦点视角
+  all, // 全部视角
+}
+
 class MultiViewController extends GetxController {
   final Rx<MultiViewLayout> layout = MultiViewLayout.four.obs;
   final RxInt focusedIndex = 0.obs;
   final RxBool isSoloAudioMode = true.obs; // 默认仅主焦点发声
   final RxBool isFullScreen = false.obs;
+  final Rx<MultiViewDanmakuMode> danmakuMode = MultiViewDanmakuMode.primary.obs; // 默认开启主视角弹幕
 
   late final List<MultiViewItemController> items;
 
@@ -59,6 +67,47 @@ class MultiViewController extends GetxController {
     int maxVisible = getVisibleCount();
     if (focusedIndex.value >= maxVisible) {
       setFocus(0);
+    }
+  }
+
+  void cycleLayout() {
+    if (layout.value == MultiViewLayout.two) {
+      setLayout(MultiViewLayout.three);
+    } else if (layout.value == MultiViewLayout.three) {
+      setLayout(MultiViewLayout.four);
+    } else {
+      setLayout(MultiViewLayout.two);
+    }
+  }
+
+  /// 切换弹幕显示模式
+  void cycleDanmakuMode() {
+    if (danmakuMode.value == MultiViewDanmakuMode.primary) {
+      danmakuMode.value = MultiViewDanmakuMode.focused;
+      SmartDialog.showToast("弹幕模式: 仅当前焦点视角");
+    } else if (danmakuMode.value == MultiViewDanmakuMode.focused) {
+      danmakuMode.value = MultiViewDanmakuMode.all;
+      SmartDialog.showToast("弹幕模式: 全部视角");
+    } else if (danmakuMode.value == MultiViewDanmakuMode.all) {
+      danmakuMode.value = MultiViewDanmakuMode.none;
+      SmartDialog.showToast("已关闭弹幕");
+    } else {
+      danmakuMode.value = MultiViewDanmakuMode.primary;
+      SmartDialog.showToast("弹幕模式: 仅主视角 (1)");
+    }
+  }
+
+  /// 判断指定分屏是否应该显示弹幕
+  bool shouldShowDanmaku(int index) {
+    switch (danmakuMode.value) {
+      case MultiViewDanmakuMode.none:
+        return false;
+      case MultiViewDanmakuMode.primary:
+        return index == 0;
+      case MultiViewDanmakuMode.focused:
+        return index == focusedIndex.value;
+      case MultiViewDanmakuMode.all:
+        return true;
     }
   }
 

@@ -12,10 +12,18 @@ enum TVMultiViewLayout {
   four, // 4宫格
 }
 
+enum TVMultiViewDanmakuMode {
+  none, // 关闭弹幕
+  primary, // 仅主视角(1)
+  focused, // 仅当前焦点视角
+  all, // 全部视角
+}
+
 class TVMultiViewController extends GetxController {
   final Rx<TVMultiViewLayout> layout = TVMultiViewLayout.four.obs;
   final RxInt focusedIndex = 0.obs;
   final RxBool isSoloAudioMode = true.obs; // 默认仅主焦点发声
+  final Rx<TVMultiViewDanmakuMode> danmakuMode = TVMultiViewDanmakuMode.primary.obs; // 默认开启主视角弹幕
 
   late final List<MultiViewItemController> items;
   late final List<AppFocusNode> focusNodes = List.generate(
@@ -81,6 +89,37 @@ class TVMultiViewController extends GetxController {
       setLayout(TVMultiViewLayout.four);
     } else {
       setLayout(TVMultiViewLayout.two);
+    }
+  }
+
+  /// 切换弹幕显示模式
+  void cycleDanmakuMode() {
+    if (danmakuMode.value == TVMultiViewDanmakuMode.primary) {
+      danmakuMode.value = TVMultiViewDanmakuMode.focused;
+      SmartDialog.showToast("弹幕模式: 仅当前焦点视角");
+    } else if (danmakuMode.value == TVMultiViewDanmakuMode.focused) {
+      danmakuMode.value = TVMultiViewDanmakuMode.all;
+      SmartDialog.showToast("弹幕模式: 全部视角");
+    } else if (danmakuMode.value == TVMultiViewDanmakuMode.all) {
+      danmakuMode.value = TVMultiViewDanmakuMode.none;
+      SmartDialog.showToast("已关闭弹幕");
+    } else {
+      danmakuMode.value = TVMultiViewDanmakuMode.primary;
+      SmartDialog.showToast("弹幕模式: 仅主视角 (1)");
+    }
+  }
+
+  /// 判断指定分屏是否应该显示弹幕
+  bool shouldShowDanmaku(int index) {
+    switch (danmakuMode.value) {
+      case TVMultiViewDanmakuMode.none:
+        return false;
+      case TVMultiViewDanmakuMode.primary:
+        return index == 0;
+      case TVMultiViewDanmakuMode.focused:
+        return index == focusedIndex.value;
+      case TVMultiViewDanmakuMode.all:
+        return true;
     }
   }
 

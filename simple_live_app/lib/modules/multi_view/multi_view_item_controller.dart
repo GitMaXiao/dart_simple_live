@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'package:canvas_danmaku/canvas_danmaku.dart';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
@@ -18,6 +20,17 @@ class MultiViewItemController {
 
   Site? site;
   String? roomId;
+
+  DanmakuController? danmakuController;
+  final RxBool showDanmaku = true.obs;
+
+  void initDanmakuController(DanmakuController c) {
+    danmakuController = c;
+  }
+
+  void toggleDanmaku() {
+    showDanmaku.value = !showDanmaku.value;
+  }
 
   late final Player player = Player(
     configuration: PlayerConfiguration(
@@ -55,7 +68,6 @@ class MultiViewItemController {
 
   final RxDouble volume = 100.0.obs;
   final RxBool isMuted = false.obs;
-  final RxBool showDanmaku = false.obs;
 
   final RxList<LivePlayQuality> qualities = <LivePlayQuality>[].obs;
   final RxInt currentQualityIndex = (-1).obs;
@@ -172,6 +184,10 @@ class MultiViewItemController {
             messages.removeAt(0);
           }
           messages.add(msg);
+          danmakuController?.addDanmaku(DanmakuContentItem(
+            msg.message,
+            color: Color.fromARGB(255, msg.color.r, msg.color.g, msg.color.b),
+          ));
         }
       };
 
@@ -248,6 +264,7 @@ class MultiViewItemController {
 
   void clearRoom() {
     stop();
+    danmakuController?.clear();
     site = null;
     roomId = null;
     hasRoom.value = false;
@@ -261,6 +278,7 @@ class MultiViewItemController {
 
   void dispose() {
     stop();
+    danmakuController?.clear();
     player.dispose();
   }
 }

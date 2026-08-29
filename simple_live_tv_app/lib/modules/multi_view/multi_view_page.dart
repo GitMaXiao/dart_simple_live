@@ -1,3 +1,4 @@
+import 'package:canvas_danmaku/canvas_danmaku.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
@@ -99,6 +100,19 @@ class TVMultiViewPage extends GetView<TVMultiViewController> {
                     onTap: () => controller.toggleAudioMode(),
                   ),
                 ),
+                AppStyle.hGap16,
+                // 弹幕模式切换
+                Obx(
+                  () => HighlightButton(
+                    focusNode: AppFocusNode(),
+                    iconData: controller.danmakuMode.value != TVMultiViewDanmakuMode.none
+                        ? Remix.chat_1_line
+                        : Remix.chat_off_line,
+                    text: _getDanmakuModeName(controller.danmakuMode.value),
+                    selected: controller.danmakuMode.value != TVMultiViewDanmakuMode.none,
+                    onTap: () => controller.cycleDanmakuMode(),
+                  ),
+                ),
               ],
             ),
           ),
@@ -109,6 +123,19 @@ class TVMultiViewPage extends GetView<TVMultiViewController> {
         ],
       ),
     );
+  }
+
+  String _getDanmakuModeName(TVMultiViewDanmakuMode m) {
+    switch (m) {
+      case TVMultiViewDanmakuMode.none:
+        return "关闭弹幕";
+      case TVMultiViewDanmakuMode.primary:
+        return "主视角弹幕";
+      case TVMultiViewDanmakuMode.focused:
+        return "焦点弹幕";
+      case TVMultiViewDanmakuMode.all:
+        return "全屏弹幕";
+    }
   }
 
   String _getLayoutName(TVMultiViewLayout l) {
@@ -230,6 +257,25 @@ class TVMultiViewPage extends GetView<TVMultiViewController> {
                     )
                   else
                     _buildEmptySlot(index, isFocused),
+
+                  // 弹幕图层
+                  if (item.hasRoom.value)
+                    Obx(() {
+                      bool isVisible = controller.shouldShowDanmaku(index) && item.showDanmaku.value;
+                      return Offstage(
+                        offstage: !isVisible,
+                        child: DanmakuScreen(
+                          key: Key("danmaku_tv_item_${item.roomId ?? index}"),
+                          createdController: item.initDanmakuController,
+                          option: DanmakuOption(
+                            fontSize: (index == 0 && controller.layout.value == TVMultiViewLayout.three) ? 24.sp : 18.sp,
+                            area: 0.65,
+                            duration: 8,
+                            opacity: 0.85,
+                          ),
+                        ),
+                      );
+                    }),
 
                   // 加载状态
                   if (item.isLoading.value)

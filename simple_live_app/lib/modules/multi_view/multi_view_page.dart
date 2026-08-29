@@ -1,3 +1,4 @@
+import 'package:canvas_danmaku/canvas_danmaku.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:media_kit_video/media_kit_video.dart';
@@ -9,12 +10,25 @@ import 'package:simple_live_app/modules/multi_view/multi_view_item_controller.da
 class MultiViewPage extends GetView<MultiViewController> {
   const MultiViewPage({super.key});
 
+  String _getDanmakuTooltip(MultiViewDanmakuMode mode) {
+    switch (mode) {
+      case MultiViewDanmakuMode.none:
+        return "弹幕已关闭 (点击开启主视角弹幕)";
+      case MultiViewDanmakuMode.primary:
+        return "主视角弹幕 (点击开启焦点弹幕)";
+      case MultiViewDanmakuMode.focused:
+        return "仅焦点视角弹幕 (点击开启全部视角弹幕)";
+      case MultiViewDanmakuMode.all:
+        return "全部视角弹幕 (点击关闭)";
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(48),
+        preferredSize: const Size.fromHeight(kToolbarHeight),
         child: Obx(
           () => controller.isFullScreen.value
               ? const SizedBox.shrink()
@@ -54,6 +68,20 @@ class MultiViewPage extends GetView<MultiViewController> {
                       ),
                       tooltip: controller.isSoloAudioMode.value ? "焦点独占音频 (点击切混音)" : "多路混音模式 (点击切独占)",
                       onPressed: () => controller.toggleAudioMode(),
+                    ),
+                    // 弹幕模式
+                    IconButton(
+                      icon: Icon(
+                        controller.danmakuMode.value != MultiViewDanmakuMode.none
+                            ? Remix.chat_1_line
+                            : Remix.chat_off_line,
+                        size: 20,
+                        color: controller.danmakuMode.value != MultiViewDanmakuMode.none
+                            ? Colors.blueAccent
+                            : Colors.white60,
+                      ),
+                      tooltip: _getDanmakuTooltip(controller.danmakuMode.value),
+                      onPressed: () => controller.cycleDanmakuMode(),
                     ),
                     // 全屏/横屏
                     IconButton(
@@ -105,6 +133,18 @@ class MultiViewPage extends GetView<MultiViewController> {
                                 size: 18,
                               ),
                               onPressed: () => controller.toggleAudioMode(),
+                            ),
+                            IconButton(
+                              icon: Icon(
+                                controller.danmakuMode.value != MultiViewDanmakuMode.none
+                                    ? Remix.chat_1_line
+                                    : Remix.chat_off_line,
+                                color: controller.danmakuMode.value != MultiViewDanmakuMode.none
+                                    ? Colors.blueAccent
+                                    : Colors.white60,
+                                size: 18,
+                              ),
+                              onPressed: () => controller.cycleDanmakuMode(),
                             ),
                             IconButton(
                               icon: const Icon(Remix.fullscreen_exit_line, color: Colors.white, size: 18),
@@ -249,6 +289,25 @@ class MultiViewPage extends GetView<MultiViewController> {
                 )
               else
                 _buildEmptyPlaceholder(context, index),
+
+              // 弹幕图层
+              if (item.hasRoom.value)
+                Obx(() {
+                  bool isVisible = controller.shouldShowDanmaku(index) && item.showDanmaku.value;
+                  return Offstage(
+                    offstage: !isVisible,
+                    child: DanmakuScreen(
+                      key: Key("danmaku_mobile_item_${item.roomId ?? index}"),
+                      createdController: item.initDanmakuController,
+                      option: DanmakuOption(
+                        fontSize: (index == 0 && controller.layout.value == MultiViewLayout.three) ? 14 : 11,
+                        area: 0.65,
+                        duration: 7,
+                        opacity: 0.85,
+                      ),
+                    ),
+                  );
+                }),
 
               // 加载中
               if (item.isLoading.value)
@@ -396,6 +455,8 @@ class MultiViewPage extends GetView<MultiViewController> {
                   controller.selectRoomForItem(index);
                 } else if (val == "refresh") {
                   item.refreshStream();
+                } else if (val == "toggle_danmaku") {
+                  item.toggleDanmaku();
                 } else if (val == "reconnect_danmaku") {
                   item.reconnectDanmaku();
                 } else if (val == "close") {
@@ -414,6 +475,10 @@ class MultiViewPage extends GetView<MultiViewController> {
                   const PopupMenuItem(
                     value: "refresh",
                     child: Text("刷新当前画面"),
+                  ),
+                  PopupMenuItem(
+                    value: "toggle_danmaku",
+                    child: Text(item.showDanmaku.value ? "关闭此屏弹幕" : "开启此屏弹幕"),
                   ),
                   const PopupMenuItem(
                     value: "reconnect_danmaku",
