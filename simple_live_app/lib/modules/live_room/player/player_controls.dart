@@ -772,13 +772,20 @@ void showDanmakuSettings(LiveRoomController controller) {
     title: "弹幕设置",
     width: 400,
     useSystem: true,
-    child: ListView(
-      padding: AppStyle.edgeInsetsA12,
-      children: [
-        DanmuSettingsView(
-          danmakuController: controller.danmakuController,
-        ),
-      ],
+    child: Obx(
+      () => ListView(
+        padding: AppStyle.edgeInsetsA12,
+        children: [
+          DanmuSettingsView(
+            danmakuController: controller.danmakuController,
+            isDanmakuConnected: controller.danmakuConnected.value,
+            isDanmakuConnecting: controller.danmakuConnecting.value,
+            onReconnectDanmaku: () {
+              controller.reconnectDanmaku();
+            },
+          ),
+        ],
+      ),
     ),
   );
 }

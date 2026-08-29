@@ -30,9 +30,15 @@ class DanmuSettingsPage extends StatelessWidget {
 
 class DanmuSettingsView extends GetView<AppSettingsController> {
   final Function()? onTapDanmuShield;
+  final Function()? onReconnectDanmaku;
+  final bool? isDanmakuConnected;
+  final bool? isDanmakuConnecting;
   final DanmakuController? danmakuController;
   const DanmuSettingsView({
     this.onTapDanmuShield,
+    this.onReconnectDanmaku,
+    this.isDanmakuConnected,
+    this.isDanmakuConnecting,
     this.danmakuController,
     super.key,
   });
@@ -43,8 +49,41 @@ class DanmuSettingsView extends GetView<AppSettingsController> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (onReconnectDanmaku != null) ...[
+          Padding(
+            padding: AppStyle.edgeInsetsA12.copyWith(top: 0),
+            child: Text(
+              "弹幕连接",
+              style: Get.textTheme.titleSmall,
+            ),
+          ),
+          SettingsCard(
+            child: ListTile(
+              leading: Icon(
+                isDanmakuConnecting == true
+                    ? Icons.sync
+                    : (isDanmakuConnected == true
+                        ? Icons.cloud_done
+                        : Icons.cloud_off),
+                color: isDanmakuConnecting == true
+                    ? Colors.blue
+                    : (isDanmakuConnected == true ? Colors.green : Colors.red),
+              ),
+              title: const Text("弹幕服务器状态"),
+              subtitle: Text(
+                isDanmakuConnecting == true
+                    ? "正在连接中..."
+                    : (isDanmakuConnected == true ? "连接正常" : "已断开连接"),
+              ),
+              trailing: FilledButton.tonal(
+                onPressed: isDanmakuConnecting == true ? null : onReconnectDanmaku,
+                child: const Text("重新连接"),
+              ),
+            ),
+          ),
+        ],
         Padding(
-          padding: AppStyle.edgeInsetsA12.copyWith(top: 0),
+          padding: AppStyle.edgeInsetsA12.copyWith(top: onReconnectDanmaku != null ? 12 : 0),
           child: Text(
             "弹幕屏蔽",
             style: Get.textTheme.titleSmall,

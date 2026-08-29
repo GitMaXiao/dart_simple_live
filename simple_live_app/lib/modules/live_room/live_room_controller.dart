@@ -55,6 +55,8 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
   var online = 0.obs;
   var followed = false.obs;
   var liveStatus = false.obs;
+  var danmakuConnected = false.obs;
+  var danmakuConnecting = false.obs;
   RxList<LiveSuperChatMessage> superChats = RxList<LiveSuperChatMessage>();
 
   /// 滚动控制
@@ -270,12 +272,44 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
 
   /// 接收到WebSocket关闭信息
   void onWSClose(String msg) {
+    danmakuConnected.value = false;
+    danmakuConnecting.value = false;
     addSysMsg(msg);
   }
 
   /// WebSocket准备就绪
   void onWSReady() {
+    danmakuConnected.value = true;
+    danmakuConnecting.value = false;
     addSysMsg("弹幕服务器连接正常");
+  }
+
+  /// 手动重新连接弹幕服务器
+  Future<void> reconnectDanmaku() async {
+    if (danmakuConnecting.value) return;
+    danmakuConnecting.value = true;
+    addSysMsg("正在手动重连弹幕服务器...");
+    try {
+      await liveDanmaku.stop();
+      liveDanmaku = site.liveSite.getDanmaku();
+      initDanmau();
+      
+      var danmakuData = detail.value?.danmakuData;
+      if (danmakuData == null) {
+        // 若缺少弹幕数据则重新拉取房间详情
+        var newDetail = await site.liveSite.getRoomDetail(roomId: roomId);
+        detail.value = newDetail;
+        danmakuData = newDetail.danmakuData;
+      }
+      
+      await liveDanmaku.start(danmakuData);
+      SmartDialog.showToast("已发起弹幕服务器重连");
+    } catch (e) {
+      danmakuConnecting.value = false;
+      danmakuConnected.value = false;
+      addSysMsg("弹幕重连失败: $e");
+      SmartDialog.showToast("重连失败: $e");
+    }
   }
 
   /// 加载直播间信息
@@ -630,17 +664,24 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
   void showDanmuSettingsSheet() {
     Utils.showBottomSheet(
       title: "弹幕设置",
-      child: ListView(
-        padding: AppStyle.edgeInsetsA12,
-        children: [
-          DanmuSettingsView(
-            danmakuController: danmakuController,
-            onTapDanmuShield: () {
-              Get.back();
-              showDanmuShield();
-            },
-          ),
-        ],
+      child: Obx(
+        () => ListView(
+          padding: AppStyle.edgeInsetsA12,
+          children: [
+            DanmuSettingsView(
+              danmakuController: danmakuController,
+              isDanmakuConnected: danmakuConnected.value,
+              isDanmakuConnecting: danmakuConnecting.value,
+              onReconnectDanmaku: () {
+                reconnectDanmaku();
+              },
+              onTapDanmuShield: () {
+                Get.back();
+                showDanmuShield();
+              },
+            ),
+          ],
+        ),
       ),
     );
   }

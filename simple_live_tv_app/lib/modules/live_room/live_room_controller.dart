@@ -100,6 +100,26 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
     liveDanmaku.onMessage = onWSMessage;
   }
 
+  /// 手动重新连接弹幕服务器
+  Future<void> reconnectDanmaku() async {
+    try {
+      await liveDanmaku.stop();
+      liveDanmaku = site.liveSite.getDanmaku();
+      initDanmau();
+
+      var danmakuData = detail.value?.danmakuData;
+      if (danmakuData == null) {
+        var newDetail = await site.liveSite.getRoomDetail(roomId: roomId);
+        detail.value = newDetail;
+        danmakuData = newDetail.danmakuData;
+      }
+      await liveDanmaku.start(danmakuData);
+      SmartDialog.showToast("已重连弹幕服务器");
+    } catch (e) {
+      SmartDialog.showToast("弹幕重连失败: $e");
+    }
+  }
+
   /// 接收到WebSocket信息
   void onWSMessage(LiveMessage msg) {
     if (msg.type == LiveMessageType.chat) {
