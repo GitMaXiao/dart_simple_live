@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:auto_orientation_v2/auto_orientation_v2.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:floating/floating.dart';
@@ -348,35 +347,15 @@ mixin PlayerSystemMixin on PlayerMixin, PlayerStateMixin, PlayerDanmakuMixin {
 
   /// 设置横屏
   Future setLandscapeOrientation() async {
-    if (await beforeIOS16()) {
-      AutoOrientation.landscapeAutoMode();
-    } else {
-      SystemChrome.setPreferredOrientations([
-        DeviceOrientation.landscapeLeft,
-        DeviceOrientation.landscapeRight,
-      ]);
-    }
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
   }
 
   /// 设置竖屏
   Future setPortraitOrientation() async {
-    if (await beforeIOS16()) {
-      AutoOrientation.portraitAutoMode();
-    } else {
-      await SystemChrome.setPreferredOrientations(DeviceOrientation.values);
-    }
-  }
-
-  /// 是否是IOS16以下
-  Future<bool> beforeIOS16() async {
-    if (Platform.isIOS) {
-      var info = await deviceInfo.iosInfo;
-      var version = info.systemVersion;
-      var versionInt = int.tryParse(version.split('.').first) ?? 0;
-      return versionInt < 16;
-    } else {
-      return false;
-    }
+    await SystemChrome.setPreferredOrientations(DeviceOrientation.values);
   }
 
   Future saveScreenshot() async {
