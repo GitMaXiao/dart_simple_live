@@ -54,8 +54,7 @@ jobs:
       - name: 配置 Flutter 环境
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.35.x'
-          channel: 'stable'
+          flutter-version: '3.38.x'
           cache: true
 
       - name: 检查环境版本并启用 Native Assets 特性
