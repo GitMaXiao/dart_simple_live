@@ -54,7 +54,7 @@ class MultiViewController extends GetxController {
 
   void _startHideControlsTimer() {
     _hideControlsTimer?.cancel();
-    _hideControlsTimer = Timer(const Duration(seconds: 4), () {
+    _hideControlsTimer = Timer(const Duration(seconds: 3), () {
       if (isFullScreen.value) {
         showFullScreenControls.value = false;
       }

@@ -1,5 +1,6 @@
 import 'package:canvas_danmaku/canvas_danmaku.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:remixicon/remixicon.dart';
@@ -7,6 +8,7 @@ import 'package:simple_live_app/app/app_style.dart';
 import 'package:simple_live_app/app/controller/app_settings_controller.dart';
 import 'package:simple_live_app/modules/multi_view/multi_view_controller.dart';
 import 'package:simple_live_app/modules/multi_view/multi_view_item_controller.dart';
+import 'package:simple_live_app/modules/multi_view/widgets/multi_view_select_dialog.dart';
 import 'package:simple_live_app/widgets/net_image.dart';
 
 class MultiViewPage extends GetView<MultiViewController> {
@@ -144,49 +146,167 @@ class MultiViewPage extends GetView<MultiViewController> {
                 ),
         ),
       ),
-      body: Obx(
-        () => SafeArea(
-          top: false,
-          bottom: !controller.isFullScreen.value,
-          child: Stack(
+      body: Obx(() {
+        if (controller.isFullScreen.value) {
+          // 全屏横屏模式：沉浸大屏充满
+          return Stack(
             children: [
-              // 底层分屏播放画面
               Positioned.fill(
                 child: _buildLayout(context),
               ),
-
-            // 顶层全局跨全屏弹幕层
-            Positioned.fill(
-              child: Obx(
-                () => Offstage(
-                  offstage: controller.danmakuMode.value == MultiViewDanmakuMode.none,
-                  child: IgnorePointer(
-                    child: DanmakuScreen(
-                      key: const Key("mobile_multiview_global_danmaku"),
-                      createdController: controller.initGlobalDanmakuController,
-                      option: DanmakuOption(
-                        fontSize: AppSettingsController.instance.danmuSize.value > 0
-                            ? AppSettingsController.instance.danmuSize.value
-                            : 14.0,
-                        area: AppSettingsController.instance.danmuArea.value,
-                        duration: AppSettingsController.instance.danmuSpeed.value.toInt() > 0
-                            ? AppSettingsController.instance.danmuSpeed.value.toInt()
-                            : 8,
-                        opacity: AppSettingsController.instance.danmuOpacity.value,
+              _buildGlobalDanmakuLayer(),
+              // 全屏透明点击层（轻触屏幕任意位置呼出/隐藏控制栏）
+              Positioned.fill(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onTap: () => controller.toggleControls(),
+                ),
+              ),
+              _buildFullScreenControls(context),
+            ],
+          );
+        } else {
+          // 竖屏非全屏模式：上半部多屏播放区，下半部待选直播间区域
+          return SafeArea(
+            top: false,
+            bottom: true,
+            child: Column(
+              children: [
+                // 上半部多屏同播画面播放区域
+                AspectRatio(
+                  aspectRatio: 16 / 9,
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: _buildLayout(context),
                       ),
-                    ),
+                      _buildGlobalDanmakuLayer(),
+                    ],
                   ),
+                ),
+                // 中间视角快捷选择指示条
+                _buildPerspectiveBar(context),
+                // 下半部待选直播间区域（我的关注/历史/搜索/链接）
+                Expanded(
+                  child: MultiViewSelectSection(
+                    showHeader: false,
+                    onSelect: (res) {
+                      int focusIdx = controller.focusedIndex.value;
+                      controller.items[focusIdx].loadRoom(res.site, res.roomId);
+                      SmartDialog.showToast("已在【视角 ${focusIdx + 1}】载入: ${res.userName ?? res.title}");
+                      // 自动移动焦点到下一个空分屏
+                      int visibleCount = controller.getVisibleCount();
+                      for (int i = 0; i < visibleCount; i++) {
+                        if (!controller.items[i].hasRoom.value) {
+                          controller.setFocus(i);
+                          break;
+                        }
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+      }),
+    );
+  }
+
+  Widget _buildGlobalDanmakuLayer() {
+    return Positioned.fill(
+      child: Obx(
+        () => Offstage(
+          offstage: controller.danmakuMode.value == MultiViewDanmakuMode.none,
+          child: IgnorePointer(
+            child: DanmakuScreen(
+              key: const Key("mobile_multiview_global_danmaku"),
+              createdController: controller.initGlobalDanmakuController,
+              option: DanmakuOption(
+                fontSize: AppSettingsController.instance.danmuSize.value > 0
+                    ? AppSettingsController.instance.danmuSize.value
+                    : 14.0,
+                area: AppSettingsController.instance.danmuArea.value,
+                duration: AppSettingsController.instance.danmuSpeed.value.toInt() > 0
+                    ? AppSettingsController.instance.danmuSpeed.value.toInt()
+                    : 8,
+                opacity: AppSettingsController.instance.danmuOpacity.value,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPerspectiveBar(BuildContext context) {
+    return Obx(() {
+      int visibleCount = controller.getVisibleCount();
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: const Color(0xFF14141E),
+          border: Border(
+            top: BorderSide(color: Colors.white.withAlpha(15)),
+            bottom: BorderSide(color: Colors.white.withAlpha(15)),
+          ),
+        ),
+        child: Row(
+          children: [
+            const Icon(Remix.cursor_line, size: 14, color: Colors.blueAccent),
+            const SizedBox(width: 6),
+            const Text(
+              "待选视角：",
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Expanded(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: List.generate(visibleCount, (i) {
+                    var item = controller.items[i];
+                    bool isFocused = controller.focusedIndex.value == i;
+                    bool hasRoom = item.hasRoom.value;
+                    String name = item.detail.value?.userName ?? (hasRoom ? "视角 ${i + 1}" : "空闲");
+
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: ChoiceChip(
+                        selected: isFocused,
+                        showCheckmark: false,
+                        visualDensity: VisualDensity.compact,
+                        labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
+                        backgroundColor: Colors.white.withAlpha(10),
+                        selectedColor: Colors.blueAccent.withAlpha(50),
+                        side: BorderSide(
+                          color: isFocused ? Colors.blueAccent : Colors.white.withAlpha(20),
+                          width: isFocused ? 1.5 : 0.8,
+                        ),
+                        label: Text(
+                          i == 0 ? "⭐ 视角 1 ($name)" : "视角 ${i + 1} ($name)",
+                          style: TextStyle(
+                            color: isFocused ? Colors.blueAccent : Colors.white60,
+                            fontSize: 11,
+                            fontWeight: isFocused ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                        onSelected: (_) => controller.setFocus(i),
+                      ),
+                    );
+                  }),
                 ),
               ),
             ),
-
-            // 全屏模式下的顶部控制条
-            _buildFullScreenControls(context),
           ],
         ),
-      ),
-    ),
-  );
+      );
+    });
   }
 
   Widget _buildFullScreenControls(BuildContext context) {
@@ -436,62 +556,28 @@ class MultiViewPage extends GetView<MultiViewController> {
   }
 
   Widget _buildTwoLayout(BuildContext context) {
-    return OrientationBuilder(
-      builder: (context, orientation) {
-        if (orientation == Orientation.landscape) {
-          return Row(
-            children: [
-              Expanded(child: _buildItemView(context, 0)),
-              Expanded(child: _buildItemView(context, 1)),
-            ],
-          );
-        } else {
-          return Column(
-            children: [
-              Expanded(child: _buildItemView(context, 0)),
-              Expanded(child: _buildItemView(context, 1)),
-            ],
-          );
-        }
-      },
+    return Row(
+      children: [
+        Expanded(child: _buildItemView(context, 0)),
+        Expanded(child: _buildItemView(context, 1)),
+      ],
     );
   }
 
   Widget _buildThreeLayout(BuildContext context) {
-    return OrientationBuilder(
-      builder: (context, orientation) {
-        if (orientation == Orientation.landscape) {
-          return Row(
+    return Row(
+      children: [
+        Expanded(flex: 2, child: _buildItemView(context, 0)),
+        Expanded(
+          flex: 1,
+          child: Column(
             children: [
-              Expanded(flex: 2, child: _buildItemView(context, 0)),
-              Expanded(
-                flex: 1,
-                child: Column(
-                  children: [
-                    Expanded(child: _buildItemView(context, 1)),
-                    Expanded(child: _buildItemView(context, 2)),
-                  ],
-                ),
-              ),
+              Expanded(child: _buildItemView(context, 1)),
+              Expanded(child: _buildItemView(context, 2)),
             ],
-          );
-        } else {
-          return Column(
-            children: [
-              Expanded(flex: 5, child: _buildItemView(context, 0)),
-              Expanded(
-                flex: 3,
-                child: Row(
-                  children: [
-                    Expanded(child: _buildItemView(context, 1)),
-                    Expanded(child: _buildItemView(context, 2)),
-                  ],
-                ),
-              ),
-            ],
-          );
-        }
-      },
+          ),
+        ),
+      ],
     );
   }
 

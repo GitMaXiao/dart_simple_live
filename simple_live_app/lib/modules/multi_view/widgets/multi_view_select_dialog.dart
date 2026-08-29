@@ -28,7 +28,7 @@ class MultiViewSelectResult {
   });
 }
 
-class MultiViewSelectDialog extends StatefulWidget {
+class MultiViewSelectDialog extends StatelessWidget {
   const MultiViewSelectDialog({super.key});
 
   static Future<MultiViewSelectResult?> show() async {
@@ -40,10 +40,31 @@ class MultiViewSelectDialog extends StatefulWidget {
   }
 
   @override
-  State<MultiViewSelectDialog> createState() => _MultiViewSelectDialogState();
+  Widget build(BuildContext context) {
+    return const MultiViewSelectSection(
+      showHeader: true,
+      isBottomSheet: true,
+    );
+  }
 }
 
-class _MultiViewSelectDialogState extends State<MultiViewSelectDialog>
+class MultiViewSelectSection extends StatefulWidget {
+  final Function(MultiViewSelectResult result)? onSelect;
+  final bool showHeader;
+  final bool isBottomSheet;
+
+  const MultiViewSelectSection({
+    super.key,
+    this.onSelect,
+    this.showHeader = false,
+    this.isBottomSheet = false,
+  });
+
+  @override
+  State<MultiViewSelectSection> createState() => _MultiViewSelectSectionState();
+}
+
+class _MultiViewSelectSectionState extends State<MultiViewSelectSection>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final TextEditingController _urlController = TextEditingController();
@@ -67,14 +88,22 @@ class _MultiViewSelectDialogState extends State<MultiViewSelectDialog>
     super.dispose();
   }
 
+  void _deliverResult(MultiViewSelectResult result) {
+    if (widget.onSelect != null) {
+      widget.onSelect!(result);
+    } else {
+      Get.back(result: result);
+    }
+  }
+
   void _onSelectFollow(FollowUser user) {
     var site = Sites.allSites[user.siteId];
     if (site == null) {
       SmartDialog.showToast("不支持的直播平台");
       return;
     }
-    Get.back(
-      result: MultiViewSelectResult(
+    _deliverResult(
+      MultiViewSelectResult(
         site: site,
         roomId: user.roomId,
         title: user.userName,
@@ -90,8 +119,8 @@ class _MultiViewSelectDialogState extends State<MultiViewSelectDialog>
       SmartDialog.showToast("不支持的直播平台");
       return;
     }
-    Get.back(
-      result: MultiViewSelectResult(
+    _deliverResult(
+      MultiViewSelectResult(
         site: site,
         roomId: history.roomId,
         title: history.userName,
@@ -116,8 +145,8 @@ class _MultiViewSelectDialogState extends State<MultiViewSelectDialog>
           try {
             var detail = await site.liveSite.getRoomDetail(roomId: input);
             SmartDialog.dismiss();
-            Get.back(
-              result: MultiViewSelectResult(
+            _deliverResult(
+              MultiViewSelectResult(
                 site: site,
                 roomId: detail.roomId,
                 title: detail.title,
@@ -136,8 +165,8 @@ class _MultiViewSelectDialogState extends State<MultiViewSelectDialog>
       }
     } else {
       // 纯房间号
-      Get.back(
-        result: MultiViewSelectResult(
+      _deliverResult(
+        MultiViewSelectResult(
           site: _selectedSite,
           roomId: input,
           title: "${_selectedSite.name} - $input",
@@ -173,27 +202,10 @@ class _MultiViewSelectDialogState extends State<MultiViewSelectDialog>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-    return AnimatedPadding(
-      padding: EdgeInsets.only(bottom: bottomInset),
-      duration: const Duration(milliseconds: 100),
-      curve: Curves.easeOut,
-      child: SafeArea(
-        top: false,
-        child: Container(
-          height: MediaQuery.of(context).size.height * 0.78,
-          decoration: BoxDecoration(
-            color: theme.scaffoldBackgroundColor,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withAlpha(80),
-                blurRadius: 20,
-                spreadRadius: 2,
-              ),
-            ],
-          ),
-          child: Column(
-            children: [
+
+    Widget content = Column(
+      children: [
+        if (widget.showHeader) ...[
           // 顶部小把手
           Container(
             margin: const EdgeInsets.only(top: 10, bottom: 6),
@@ -236,41 +248,67 @@ class _MultiViewSelectDialogState extends State<MultiViewSelectDialog>
               ],
             ),
           ),
-          // 选项卡
-          TabBar(
+        ],
+        // 选项卡
+        TabBar(
+          controller: _tabController,
+          labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+          unselectedLabelStyle: const TextStyle(fontSize: 13),
+          tabs: const [
+            Tab(
+              icon: Icon(Remix.heart_3_line, size: 16),
+              text: "我的关注",
+            ),
+            Tab(
+              icon: Icon(Remix.history_line, size: 16),
+              text: "观看历史",
+            ),
+            Tab(
+              icon: Icon(Remix.search_2_line, size: 16),
+              text: "搜索 / 链接",
+            ),
+          ],
+        ),
+        Expanded(
+          child: TabBarView(
             controller: _tabController,
-            labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-            unselectedLabelStyle: const TextStyle(fontSize: 14),
-            tabs: const [
-              Tab(
-                icon: Icon(Remix.heart_3_line, size: 16),
-                text: "我的关注",
-              ),
-              Tab(
-                icon: Icon(Remix.history_line, size: 16),
-                text: "观看历史",
-              ),
-              Tab(
-                icon: Icon(Remix.search_2_line, size: 16),
-                text: "搜索 / 链接",
-              ),
+            children: [
+              _buildFollowTab(),
+              _buildHistoryTab(),
+              _buildInputTab(),
             ],
           ),
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildFollowTab(),
-                _buildHistoryTab(),
-                _buildInputTab(),
+        ),
+      ],
+    );
+
+    if (widget.isBottomSheet) {
+      return AnimatedPadding(
+        padding: EdgeInsets.only(bottom: bottomInset),
+        duration: const Duration(milliseconds: 100),
+        curve: Curves.easeOut,
+        child: SafeArea(
+          top: false,
+          child: Container(
+            height: MediaQuery.of(context).size.height * 0.78,
+            decoration: BoxDecoration(
+              color: theme.scaffoldBackgroundColor,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withAlpha(80),
+                  blurRadius: 20,
+                  spreadRadius: 2,
+                ),
               ],
             ),
+            child: content,
           ),
-        ],
-      ),
-    ),
-  ),
-);
+        ),
+      );
+    } else {
+      return content;
+    }
   }
 
   Widget _buildFollowTab() {
