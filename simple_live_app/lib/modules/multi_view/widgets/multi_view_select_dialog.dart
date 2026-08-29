@@ -4,10 +4,12 @@ import 'package:get/get.dart';
 import 'package:remixicon/remixicon.dart';
 import 'package:simple_live_app/app/app_style.dart';
 import 'package:simple_live_app/app/sites.dart';
+import 'package:simple_live_app/app/utils.dart';
 import 'package:simple_live_app/models/db/follow_user.dart';
 import 'package:simple_live_app/models/db/history.dart';
 import 'package:simple_live_app/services/db_service.dart';
 import 'package:simple_live_app/services/follow_service.dart';
+import 'package:simple_live_app/widgets/net_image.dart';
 import 'package:simple_live_core/simple_live_core.dart';
 
 class MultiViewSelectResult {
@@ -171,26 +173,48 @@ class _MultiViewSelectDialogState extends State<MultiViewSelectDialog>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      height: MediaQuery.of(context).size.height * 0.75,
+      height: MediaQuery.of(context).size.height * 0.78,
       decoration: BoxDecoration(
         color: theme.scaffoldBackgroundColor,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(80),
+            blurRadius: 20,
+            spreadRadius: 2,
+          ),
+        ],
       ),
       child: Column(
         children: [
+          // 顶部小把手
           Container(
-            margin: const EdgeInsets.symmetric(vertical: 8),
-            width: 36,
+            margin: const EdgeInsets.only(top: 10, bottom: 6),
+            width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: Colors.grey.withAlpha(80),
+              color: Colors.grey.withAlpha(90),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
+          // 标题栏
           Padding(
-            padding: AppStyle.edgeInsetsH16,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
               children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Remix.layout_grid_line,
+                    size: 18,
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+                AppStyle.hGap12,
                 Text(
                   "选择分屏直播间",
                   style: theme.textTheme.titleMedium?.copyWith(
@@ -199,18 +223,30 @@ class _MultiViewSelectDialogState extends State<MultiViewSelectDialog>
                 ),
                 const Spacer(),
                 IconButton(
-                  icon: const Icon(Icons.close),
+                  icon: const Icon(Remix.close_line, size: 20),
                   onPressed: () => Get.back(),
                 ),
               ],
             ),
           ),
+          // 选项卡
           TabBar(
             controller: _tabController,
+            labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            unselectedLabelStyle: const TextStyle(fontSize: 14),
             tabs: const [
-              Tab(text: "我的关注"),
-              Tab(text: "观看历史"),
-              Tab(text: "搜索 / 输入"),
+              Tab(
+                icon: Icon(Remix.heart_3_line, size: 16),
+                text: "我的关注",
+              ),
+              Tab(
+                icon: Icon(Remix.history_line, size: 16),
+                text: "观看历史",
+              ),
+              Tab(
+                icon: Icon(Remix.search_2_line, size: 16),
+                text: "搜索 / 链接",
+              ),
             ],
           ),
           Expanded(
@@ -230,38 +266,150 @@ class _MultiViewSelectDialogState extends State<MultiViewSelectDialog>
 
   Widget _buildFollowTab() {
     return Obx(() {
-      var list = FollowService.instance.liveList.isNotEmpty
-          ? FollowService.instance.liveList
-          : FollowService.instance.followList;
-      if (list.isEmpty) {
-        return const Center(child: Text("暂无关注主播"));
+      var liveList = FollowService.instance.liveList;
+      var notLiveList = FollowService.instance.notLiveList;
+      var totalList = [...liveList, ...notLiveList];
+
+      if (totalList.isEmpty) {
+        return Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Remix.user_heart_line, size: 48, color: Colors.grey.withAlpha(120)),
+              AppStyle.vGap12,
+              const Text("暂无关注的主播", style: TextStyle(color: Colors.grey)),
+            ],
+          ),
+        );
       }
+
       return ListView.separated(
         padding: AppStyle.edgeInsetsA12,
-        itemCount: list.length,
+        itemCount: totalList.length,
         separatorBuilder: (_, __) => AppStyle.vGap8,
         itemBuilder: (context, index) {
-          var user = list[index];
-          return ListTile(
-            tileColor: Theme.of(context).cardColor,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            leading: CircleAvatar(
-              backgroundImage: NetworkImage(user.face),
-              onBackgroundImageError: (_, __) {},
-            ),
-            title: Text(user.userName, maxLines: 1),
-            subtitle: Text("房间号: ${user.roomId}", maxLines: 1),
-            trailing: Obx(() => user.liveStatus.value == 2
-                ? Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.red,
-                      borderRadius: BorderRadius.circular(4),
+          var user = totalList[index];
+          var site = Sites.allSites[user.siteId];
+          bool isLiving = user.liveStatus.value == 2;
+
+          return Material(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(12),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => _onSelectFollow(user),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                child: Row(
+                  children: [
+                    // 头像与平台角标
+                    Stack(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(24),
+                          child: NetImage(
+                            user.face,
+                            width: 46,
+                            height: 46,
+                          ),
+                        ),
+                        if (site != null)
+                          Positioned(
+                            right: 0,
+                            bottom: 0,
+                            child: Container(
+                              padding: const EdgeInsets.all(2),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).cardColor,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Image.asset(
+                                site.logo,
+                                width: 14,
+                                height: 14,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
-                    child: const Text("直播中", style: TextStyle(color: Colors.white, fontSize: 11)),
-                  )
-                : const SizedBox.shrink()),
-            onTap: () => _onSelectFollow(user),
+                    AppStyle.hGap12,
+                    // 主播名与房间信息
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  user.userName,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (site != null) ...[
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.withAlpha(35),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    site.name,
+                                    style: const TextStyle(fontSize: 10, color: Colors.grey),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          AppStyle.vGap4,
+                          Text(
+                            "房间号: ${user.roomId}",
+                            style: const TextStyle(fontSize: 12, color: Colors.grey),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    AppStyle.hGap8,
+                    // 状态徽章
+                    if (isLiving)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.redAccent.withAlpha(30),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.redAccent.withAlpha(120)),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              "● 直播中",
+                              style: TextStyle(
+                                color: Colors.redAccent,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    else
+                      const Text(
+                        "未开播",
+                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                  ],
+                ),
+              ),
+            ),
           );
         },
       );
@@ -271,7 +419,16 @@ class _MultiViewSelectDialogState extends State<MultiViewSelectDialog>
   Widget _buildHistoryTab() {
     var historyList = DBService.instance.historyBox.values.toList().reversed.toList();
     if (historyList.isEmpty) {
-      return const Center(child: Text("暂无历史记录"));
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Remix.history_line, size: 48, color: Colors.grey.withAlpha(120)),
+            AppStyle.vGap12,
+            const Text("暂无观看历史记录", style: TextStyle(color: Colors.grey)),
+          ],
+        ),
+      );
     }
     return ListView.separated(
       padding: AppStyle.edgeInsetsA12,
@@ -279,79 +436,185 @@ class _MultiViewSelectDialogState extends State<MultiViewSelectDialog>
       separatorBuilder: (_, __) => AppStyle.vGap8,
       itemBuilder: (context, index) {
         var item = historyList[index];
-        return ListTile(
-          tileColor: Theme.of(context).cardColor,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          leading: CircleAvatar(
-            backgroundImage: NetworkImage(item.face),
-            onBackgroundImageError: (_, __) {},
+        var site = Sites.allSites[item.siteId];
+        return Material(
+          color: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(12),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => _onSelectHistory(item),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                children: [
+                  Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(24),
+                        child: NetImage(
+                          item.face,
+                          width: 44,
+                          height: 44,
+                        ),
+                      ),
+                      if (site != null)
+                        Positioned(
+                          right: 0,
+                          bottom: 0,
+                          child: Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).cardColor,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Image.asset(
+                              site.logo,
+                              width: 14,
+                              height: 14,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  AppStyle.hGap12,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.userName,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        AppStyle.vGap4,
+                        Text(
+                          "${site?.name ?? item.siteId.toUpperCase()} · 房间 ${item.roomId}",
+                          style: const TextStyle(fontSize: 12, color: Colors.grey),
+                          maxLines: 1,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Remix.arrow_right_s_line, size: 18, color: Colors.grey),
+                ],
+              ),
+            ),
           ),
-          title: Text(item.userName, maxLines: 1),
-          subtitle: Text("${item.siteId.toUpperCase()} · ${item.roomId}", maxLines: 1),
-          trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-          onTap: () => _onSelectHistory(item),
         );
       },
     );
   }
 
   Widget _buildInputTab() {
+    final theme = Theme.of(context);
     return ListView(
       padding: AppStyle.edgeInsetsA16,
       children: [
         // 平台选择
-        Row(
-          children: [
-            const Text("选择平台："),
-            AppStyle.hGap8,
-            DropdownButton<Site>(
-              value: _selectedSite,
-              items: Sites.allSites.values.map((site) {
-                return DropdownMenuItem<Site>(
-                  value: site,
-                  child: Text(site.name),
-                );
-              }).toList(),
-              onChanged: (val) {
-                if (val != null) setState(() => _selectedSite = val);
-              },
-            ),
-          ],
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: theme.cardColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.withAlpha(40)),
+          ),
+          child: Row(
+            children: [
+              const Text("目标平台：", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+              AppStyle.hGap8,
+              Expanded(
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<Site>(
+                    value: _selectedSite,
+                    isExpanded: true,
+                    items: Sites.allSites.values.map((site) {
+                      return DropdownMenuItem<Site>(
+                        value: site,
+                        child: Row(
+                          children: [
+                            Image.asset(site.logo, width: 20, height: 20),
+                            AppStyle.hGap8,
+                            Text(site.name, style: const TextStyle(fontSize: 14)),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (val) {
+                      if (val != null) setState(() => _selectedSite = val);
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
-        AppStyle.vGap12,
+        const SizedBox(height: 16),
         // 输入房间号或网址
         TextField(
           controller: _urlController,
           decoration: InputDecoration(
             labelText: "直播间链接 或 房间号",
             hintText: "可直接粘贴完整网页链接或输入房间ID",
-            suffixIcon: IconButton(
-              icon: const Icon(Remix.check_line),
-              onPressed: _parseUrlOrRoomId,
+            prefixIcon: const Icon(Remix.link, size: 20),
+            suffixIcon: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  tooltip: "粘贴剪贴板内容",
+                  icon: const Icon(Remix.clipboard_line, size: 18),
+                  onPressed: () async {
+                    var text = await Utils.getClipboard();
+                    if (text != null && text.isNotEmpty) {
+                      _urlController.text = text;
+                    }
+                  },
+                ),
+                IconButton(
+                  tooltip: "确定载入",
+                  icon: const Icon(Remix.check_line, size: 20, color: Colors.blueAccent),
+                  onPressed: _parseUrlOrRoomId,
+                ),
+              ],
             ),
-            border: const OutlineInputBorder(),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           ),
           onSubmitted: (_) => _parseUrlOrRoomId(),
         ),
         AppStyle.vGap12,
         FilledButton.icon(
+          style: FilledButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
           onPressed: _parseUrlOrRoomId,
-          icon: const Icon(Remix.play_line),
-          label: const Text("载入此房间"),
+          icon: const Icon(Remix.play_circle_line),
+          label: const Text("载入此房间播放", style: TextStyle(fontWeight: FontWeight.bold)),
         ),
         AppStyle.vGap24,
-        const Divider(),
-        AppStyle.vGap12,
-        Text("或者按关键字搜索主播：", style: Theme.of(context).textTheme.titleSmall),
-        AppStyle.vGap8,
+        Row(
+          children: [
+            const Expanded(child: Divider()),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Text("或搜索平台在线主播", style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+            ),
+            const Expanded(child: Divider()),
+          ],
+        ),
+        const SizedBox(height: 16),
         Row(
           children: [
             Expanded(
               child: TextField(
                 controller: _searchController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   hintText: "输入主播昵称或房间标题",
-                  border: OutlineInputBorder(),
+                  prefixIcon: const Icon(Remix.search_line, size: 18),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   isDense: true,
                 ),
                 onSubmitted: (_) => _doSearch(),
@@ -359,6 +622,10 @@ class _MultiViewSelectDialogState extends State<MultiViewSelectDialog>
             ),
             AppStyle.hGap8,
             FilledButton.tonal(
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
               onPressed: _isSearching ? null : _doSearch,
               child: _isSearching
                   ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
@@ -367,26 +634,35 @@ class _MultiViewSelectDialogState extends State<MultiViewSelectDialog>
           ],
         ),
         if (_searchResults.isNotEmpty) ...[
-          AppStyle.vGap12,
+          const SizedBox(height: 16),
           ..._searchResults.map((item) {
-            return ListTile(
-              leading: CircleAvatar(
-                backgroundImage: NetworkImage(item.cover),
-                onBackgroundImageError: (_, __) {},
-              ),
-              title: Text(item.userName),
-              subtitle: Text(item.title, maxLines: 1),
-              onTap: () {
-                Get.back(
-                  result: MultiViewSelectResult(
-                    site: _selectedSite,
-                    roomId: item.roomId,
-                    title: item.title,
-                    userName: item.userName,
-                    cover: item.cover,
+            return Card(
+              margin: const EdgeInsets.only(bottom: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              child: ListTile(
+                leading: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: NetImage(
+                    item.cover,
+                    width: 54,
+                    height: 38,
                   ),
-                );
-              },
+                ),
+                title: Text(item.userName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: Text(item.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+                trailing: const Icon(Remix.arrow_right_s_line, size: 16),
+                onTap: () {
+                  Get.back(
+                    result: MultiViewSelectResult(
+                      site: _selectedSite,
+                      roomId: item.roomId,
+                      title: item.title,
+                      userName: item.userName,
+                      cover: item.cover,
+                    ),
+                  );
+                },
+              ),
             );
           }),
         ],
