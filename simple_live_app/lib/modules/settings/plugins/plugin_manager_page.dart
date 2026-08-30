@@ -26,6 +26,37 @@ class PluginManagerPage extends GetView<PluginManagerController> {
             icon: const Icon(Remix.add_line),
             tooltip: "导入插件",
           ),
+          PopupMenuButton<String>(
+            onSelected: (action) {
+              if (action == 'export_all') {
+                controller.exportAllPlugins();
+              } else if (action == 'preset') {
+                controller.loadPresetPlugins();
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'export_all',
+                child: Row(
+                  children: [
+                    Icon(Remix.export_line, size: 16),
+                    SizedBox(width: 8),
+                    Text("导出全部插件"),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'preset',
+                child: Row(
+                  children: [
+                    Icon(Remix.apps_line, size: 16),
+                    SizedBox(width: 8),
+                    Text("载入示例插件"),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ],
       ),
       body: Obx(() {
@@ -71,6 +102,12 @@ class PluginManagerPage extends GetView<PluginManagerController> {
                           label: const Text("示例插件"),
                         ),
                         const SizedBox(width: 8),
+                        IconButton.outlined(
+                          onPressed: controller.exportAllPlugins,
+                          icon: const Icon(Remix.export_line, size: 16),
+                          tooltip: "导出全部插件",
+                        ),
+                        const SizedBox(width: 4),
                         IconButton.outlined(
                           onPressed: controller.checkUpdates,
                           icon: const Icon(Remix.refresh_line, size: 16),
@@ -196,6 +233,8 @@ class PluginManagerPage extends GetView<PluginManagerController> {
                               onSelected: (action) {
                                 if (action == 'view') {
                                   controller.viewPluginSource(item);
+                                } else if (action == 'export') {
+                                  controller.exportPlugin(item);
                                 } else if (action == 'update') {
                                   PluginService.instance.updatePlugin(item.id);
                                 } else if (action == 'delete') {
@@ -210,6 +249,16 @@ class PluginManagerPage extends GetView<PluginManagerController> {
                                       Icon(Remix.code_line, size: 16),
                                       SizedBox(width: 8),
                                       Text("查看规则/代码"),
+                                    ],
+                                  ),
+                                ),
+                                const PopupMenuItem(
+                                  value: 'export',
+                                  child: Row(
+                                    children: [
+                                      Icon(Remix.export_line, size: 16),
+                                      SizedBox(width: 8),
+                                      Text("导出插件"),
                                     ],
                                   ),
                                 ),
