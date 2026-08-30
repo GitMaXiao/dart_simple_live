@@ -19,6 +19,7 @@ import 'package:simple_live_app/app/custom_throttle.dart';
 import 'package:simple_live_app/app/log.dart';
 import 'package:simple_live_app/app/utils.dart';
 import 'package:simple_live_app/services/live_audio_service.dart';
+import 'package:simple_live_core/simple_live_core.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -138,6 +139,59 @@ mixin PlayerStateMixin on PlayerMixin {
 
   var showQualites = false.obs;
   var showLines = false.obs;
+
+  /// 是否处于录播/点播(VOD)回看模式
+  RxBool isVODMode = false.obs;
+
+  /// 当前播放的录播信息
+  Rx<LiveReplayItem?> currentReplay = Rx<LiveReplayItem?>(null);
+
+  /// 点播播放进度与总时长
+  Rx<Duration> vodPosition = Duration.zero.obs;
+  Rx<Duration> vodDuration = Duration.zero.obs;
+
+  /// 播放状态
+  RxBool isPlaying = true.obs;
+
+  /// 倍速播放
+  RxDouble playbackRate = 1.0.obs;
+
+  /// 拖动进度条临时位置（避免拖拽时跳动）
+  RxDouble? draggingPosition;
+
+  /// 切换播放/暂停
+  Future<void> togglePlayPause() async {
+    await player.playOrPause();
+  }
+
+  /// 跳转指定时间
+  Future<void> seekTo(Duration target) async {
+    await player.seek(target);
+  }
+
+  /// 快进
+  Future<void> seekForward([int seconds = 10]) async {
+    var target = vodPosition.value + Duration(seconds: seconds);
+    if (vodDuration.value > Duration.zero && target > vodDuration.value) {
+      target = vodDuration.value;
+    }
+    await seekTo(target);
+  }
+
+  /// 快退
+  Future<void> seekBackward([int seconds = 10]) async {
+    var target = vodPosition.value - Duration(seconds: seconds);
+    if (target < Duration.zero) {
+      target = Duration.zero;
+    }
+    await seekTo(target);
+  }
+
+  /// 设置播放倍速
+  Future<void> setPlaybackRate(double rate) async {
+    playbackRate.value = rate;
+    await player.setRate(rate);
+  }
 
   /// 隐藏控制器
   void hideControls() {
@@ -689,6 +743,8 @@ class PlayerController extends BaseController
   StreamSubscription? _heightSubscription;
   StreamSubscription? _logSubscription;
   StreamSubscription? _playingSubscription;
+  StreamSubscription? _positionSubscription;
+  StreamSubscription? _durationSubscription;
 
   void initStream() {
     _errorSubscription = player.stream.error.listen((event) {
@@ -703,11 +759,20 @@ class PlayerController extends BaseController
     });
 
     _playingSubscription = player.stream.playing.listen((event) {
+      isPlaying.value = event;
       LiveAudioService.instance.updatePlayingState(event);
       if (event) {
         WakelockPlus.enable();
         Log.d("Playing");
       }
+    });
+
+    _positionSubscription = player.stream.position.listen((pos) {
+      vodPosition.value = pos;
+    });
+
+    _durationSubscription = player.stream.duration.listen((dur) {
+      vodDuration.value = dur;
     });
 
     _completedSubscription = player.stream.completed.listen((event) {
@@ -740,6 +805,8 @@ class PlayerController extends BaseController
     _logSubscription?.cancel();
     _pipSubscription?.cancel();
     _playingSubscription?.cancel();
+    _positionSubscription?.cancel();
+    _durationSubscription?.cancel();
   }
 
   void mediaEnd() {

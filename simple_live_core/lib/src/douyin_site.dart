@@ -766,6 +766,22 @@ class DouyinSite implements LiveSite {
     return Future.value(<LiveHighlightItem>[]);
   }
 
+  @override
+  Future<LiveReplayResult> getReplays({
+    required String roomId,
+    int page = 1,
+  }) {
+    return Future.value(LiveReplayResult(hasMore: false, items: []));
+  }
+
+  @override
+  Future<LivePlayUrl> getReplayPlayUrls({required LiveReplayItem item}) {
+    if (item.playUrl.isNotEmpty) {
+      return Future.value(LivePlayUrl(urls: [item.playUrl]));
+    }
+    return Future.value(LivePlayUrl(urls: []));
+  }
+
   //生成指定长度的16进制随机字符串
   String generateRandomString(int length) {
     var random = Random.secure();

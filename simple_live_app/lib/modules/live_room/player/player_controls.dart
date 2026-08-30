@@ -20,6 +20,203 @@ import 'package:simple_live_app/widgets/superchat_card.dart';
 import 'dart:async';
 import 'package:simple_live_core/simple_live_core.dart';
 
+String formatVODDuration(Duration d) {
+  var minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+  var seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+  if (d.inHours > 0) {
+    var hours = d.inHours.toString().padLeft(2, '0');
+    return '$hours:$minutes:$seconds';
+  }
+  return '$minutes:$seconds';
+}
+
+class VODProgressBar extends StatefulWidget {
+  final LiveRoomController controller;
+  const VODProgressBar({super.key, required this.controller});
+
+  @override
+  State<VODProgressBar> createState() => _VODProgressBarState();
+}
+
+class _VODProgressBarState extends State<VODProgressBar> {
+  double? _draggingValue;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final pos = widget.controller.vodPosition.value;
+      final dur = widget.controller.vodDuration.value;
+      final maxDur =
+          dur.inMilliseconds > 0 ? dur.inMilliseconds.toDouble() : 1.0;
+      final currentPos =
+          (_draggingValue ?? pos.inMilliseconds.toDouble()).clamp(0.0, maxDur);
+
+      final displayPos = _draggingValue != null
+          ? Duration(milliseconds: _draggingValue!.toInt())
+          : pos;
+
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Row(
+          children: [
+            Text(
+              formatVODDuration(displayPos),
+              style: const TextStyle(color: Colors.white, fontSize: 12),
+            ),
+            Expanded(
+              child: SliderTheme(
+                data: SliderThemeData(
+                  trackHeight: 3,
+                  thumbShape:
+                      const RoundSliderThumbShape(enabledThumbRadius: 6),
+                  overlayShape:
+                      const RoundSliderOverlayShape(overlayRadius: 12),
+                  activeTrackColor: Theme.of(context).primaryColor,
+                  inactiveTrackColor: Colors.white30,
+                  thumbColor: Colors.white,
+                ),
+                child: Slider(
+                  value: currentPos,
+                  min: 0.0,
+                  max: maxDur,
+                  onChangeStart: (val) {
+                    setState(() {
+                      _draggingValue = val;
+                    });
+                  },
+                  onChanged: (val) {
+                    setState(() {
+                      _draggingValue = val;
+                    });
+                  },
+                  onChangeEnd: (val) {
+                    widget.controller
+                        .seekTo(Duration(milliseconds: val.toInt()));
+                    setState(() {
+                      _draggingValue = null;
+                    });
+                  },
+                ),
+              ),
+            ),
+            Text(
+              formatVODDuration(dur),
+              style: const TextStyle(color: Colors.white, fontSize: 12),
+            ),
+          ],
+        ),
+      );
+    });
+  }
+}
+
+Widget buildVODBottomBar(LiveRoomController controller, {bool isFull = false}) {
+  return Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      // 进度条与时间显示
+      VODProgressBar(controller: controller),
+      // 控制按钮栏
+      Row(
+        children: [
+          // 播放/暂停
+          Obx(
+            () => IconButton(
+              onPressed: () {
+                controller.togglePlayPause();
+              },
+              icon: Icon(
+                controller.isPlaying.value ? Icons.pause : Icons.play_arrow,
+                color: Colors.white,
+              ),
+            ),
+          ),
+          // 快退 10 秒
+          IconButton(
+            onPressed: () {
+              controller.seekBackward(10);
+            },
+            icon: const Icon(
+              Remix.replay_10_line,
+              color: Colors.white,
+              size: 20,
+            ),
+          ),
+          // 快进 10 秒
+          IconButton(
+            onPressed: () {
+              controller.seekForward(10);
+            },
+            icon: const Icon(
+              Remix.forward_10_line,
+              color: Colors.white,
+              size: 20,
+            ),
+          ),
+          // 倍速播放
+          Obx(
+            () => TextButton(
+              onPressed: () {
+                var current = controller.playbackRate.value;
+                double nextRate = 1.0;
+                if (current == 1.0) {
+                  nextRate = 1.25;
+                } else if (current == 1.25) {
+                  nextRate = 1.5;
+                } else if (current == 1.5) {
+                  nextRate = 2.0;
+                } else if (current == 2.0) {
+                  nextRate = 0.75;
+                } else {
+                  nextRate = 1.0;
+                }
+                controller.setPlaybackRate(nextRate);
+              },
+              child: Text(
+                "${controller.playbackRate.value}x",
+                style: const TextStyle(color: Colors.white, fontSize: 14),
+              ),
+            ),
+          ),
+          const Spacer(),
+          // 返回直播按钮
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent.withAlpha(200),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            onPressed: () {
+              controller.returnToLive();
+            },
+            icon: const Icon(Remix.live_line, size: 14),
+            label: const Text("返回直播", style: TextStyle(fontSize: 12)),
+          ),
+          AppStyle.hGap12,
+          // 全屏按钮
+          IconButton(
+            onPressed: () {
+              if (controller.fullScreenState.value) {
+                controller.exitFull();
+              } else {
+                controller.enterFullScreen();
+              }
+            },
+            icon: Icon(
+              controller.fullScreenState.value
+                  ? Icons.fullscreen_exit
+                  : Icons.fullscreen,
+              color: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    ],
+  );
+}
+
 Widget playerControls(
   VideoState videoState,
   LiveRoomController controller,
@@ -159,14 +356,39 @@ Widget buildFullControls(
                   ),
                   AppStyle.hGap12,
                   Expanded(
-                    child: Text(
-                      "${controller.detail.value?.title} - ${controller.detail.value?.userName}",
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: Colors.white, fontSize: 16),
+                    child: Obx(
+                      () => Text(
+                        controller.isVODMode.value
+                            ? "[回看] ${controller.currentReplay.value?.title ?? controller.detail.value?.title}"
+                            : "${controller.detail.value?.title} - ${controller.detail.value?.userName}",
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style:
+                            const TextStyle(color: Colors.white, fontSize: 16),
+                      ),
                     ),
                   ),
                   AppStyle.hGap12,
+                  Obx(
+                    () => Visibility(
+                      visible: controller.isVODMode.value,
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: 8.0),
+                        child: TextButton.icon(
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.redAccent,
+                            backgroundColor: Colors.white12,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                          ),
+                          onPressed: () => controller.returnToLive(),
+                          icon: const Icon(Remix.live_line, size: 16),
+                          label: const Text("返回直播",
+                              style: TextStyle(fontSize: 13)),
+                        ),
+                      ),
+                    ),
+                  ),
                   IconButton(
                     onPressed: () {
                       controller.saveScreenshot();
@@ -258,113 +480,119 @@ Widget buildFullControls(
                 right: padding.right + 12,
                 bottom: padding.bottom,
               ),
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: () {
-                      controller.refreshRoom();
-                    },
-                    icon: const Icon(
-                      Remix.refresh_line,
-                      color: Colors.white,
-                    ),
-                  ),
-                  Offstage(
-                    offstage: controller.showDanmakuState.value,
-                    child: IconButton(
-                      onPressed: () => controller.showDanmakuState.value =
-                          !controller.showDanmakuState.value,
-                      icon: const ImageIcon(
-                        AssetImage('assets/icons/icon_danmaku_open.png'),
-                        size: 24,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                  Offstage(
-                    offstage: !controller.showDanmakuState.value,
-                    child: IconButton(
-                      onPressed: () => controller.showDanmakuState.value =
-                          !controller.showDanmakuState.value,
-                      icon: const ImageIcon(
-                        AssetImage('assets/icons/icon_danmaku_close.png'),
-                        size: 24,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () {
-                      showDanmakuSettings(controller);
-                    },
-                    icon: const ImageIcon(
-                      AssetImage('assets/icons/icon_danmaku_setting.png'),
-                      size: 24,
-                      color: Colors.white,
-                    ),
-                  ),
-                  Obx(
-                    () => Padding(
-                      padding: const EdgeInsets.only(left: 8.0),
-                      child: Text(
-                        controller.liveDuration.value,
-                        style:
-                            const TextStyle(fontSize: 14, color: Colors.white),
-                      ),
-                    ),
-                  ),
-                  const Expanded(child: Center()),
-                  Visibility(
-                    visible: !Platform.isAndroid && !Platform.isIOS,
-                    child: IconButton(
-                      key: volumeButtonkey,
+              child: Obx(() {
+                if (controller.isVODMode.value) {
+                  return buildVODBottomBar(controller, isFull: true);
+                }
+                return Row(
+                  children: [
+                    IconButton(
                       onPressed: () {
-                        controller
-                            .showVolumeSlider(volumeButtonkey.currentContext!);
+                        controller.refreshRoom();
                       },
                       icon: const Icon(
-                        Icons.volume_down,
+                        Remix.refresh_line,
+                        color: Colors.white,
+                      ),
+                    ),
+                    Offstage(
+                      offstage: controller.showDanmakuState.value,
+                      child: IconButton(
+                        onPressed: () => controller.showDanmakuState.value =
+                            !controller.showDanmakuState.value,
+                        icon: const ImageIcon(
+                          AssetImage('assets/icons/icon_danmaku_open.png'),
+                          size: 24,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    Offstage(
+                      offstage: !controller.showDanmakuState.value,
+                      child: IconButton(
+                        onPressed: () => controller.showDanmakuState.value =
+                            !controller.showDanmakuState.value,
+                        icon: const ImageIcon(
+                          AssetImage('assets/icons/icon_danmaku_close.png'),
+                          size: 24,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () {
+                        showDanmakuSettings(controller);
+                      },
+                      icon: const ImageIcon(
+                        AssetImage('assets/icons/icon_danmaku_setting.png'),
                         size: 24,
                         color: Colors.white,
                       ),
                     ),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      showQualitesInfo(controller);
-                    },
-                    child: Obx(
-                      () => Text(
-                        controller.currentQualityInfo.value,
+                    Obx(
+                      () => Padding(
+                        padding: const EdgeInsets.only(left: 8.0),
+                        child: Text(
+                          controller.liveDuration.value,
+                          style: const TextStyle(
+                              fontSize: 14, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                    const Expanded(child: Center()),
+                    Visibility(
+                      visible: !Platform.isAndroid && !Platform.isIOS,
+                      child: IconButton(
+                        key: volumeButtonkey,
+                        onPressed: () {
+                          controller
+                              .showVolumeSlider(volumeButtonkey.currentContext!);
+                        },
+                        icon: const Icon(
+                          Icons.volume_down,
+                          size: 24,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        showQualitesInfo(controller);
+                      },
+                      child: Obx(
+                        () => Text(
+                          controller.currentQualityInfo.value,
+                          style: const TextStyle(
+                              color: Colors.white, fontSize: 15),
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        showLinesInfo(controller);
+                      },
+                      child: Text(
+                        controller.currentLineInfo.value,
                         style:
                             const TextStyle(color: Colors.white, fontSize: 15),
                       ),
                     ),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      showLinesInfo(controller);
-                    },
-                    child: Text(
-                      controller.currentLineInfo.value,
-                      style: const TextStyle(color: Colors.white, fontSize: 15),
+                    IconButton(
+                      onPressed: () {
+                        if (controller.smallWindowState.value) {
+                          controller.exitSmallWindow();
+                        } else {
+                          controller.exitFull();
+                        }
+                      },
+                      icon: const Icon(
+                        Remix.fullscreen_exit_fill,
+                        color: Colors.white,
+                      ),
                     ),
-                  ),
-                  IconButton(
-                    onPressed: () {
-                      if (controller.smallWindowState.value) {
-                        controller.exitSmallWindow();
-                      } else {
-                        controller.exitFull();
-                      }
-                    },
-                    icon: const Icon(
-                      Remix.fullscreen_exit_fill,
-                      color: Colors.white,
-                    ),
-                  ),
-                ],
-              ),
+                  ],
+                );
+              }),
             ),
           ),
         ),
@@ -516,128 +744,135 @@ Widget buildControls(
                 ],
               ),
             ),
-            child: Row(
-              children: [
-                IconButton(
-                  onPressed: () {
-                    controller.refreshRoom();
-                  },
-                  icon: const Icon(
-                    Remix.refresh_line,
-                    color: Colors.white,
-                  ),
-                ),
-                Offstage(
-                  offstage: controller.showDanmakuState.value,
-                  child: IconButton(
-                    onPressed: () => controller.showDanmakuState.value =
-                        !controller.showDanmakuState.value,
-                    icon: const ImageIcon(
-                      AssetImage('assets/icons/icon_danmaku_open.png'),
-                      size: 24,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-                Offstage(
-                  offstage: !controller.showDanmakuState.value,
-                  child: IconButton(
-                    onPressed: () => controller.showDanmakuState.value =
-                        !controller.showDanmakuState.value,
-                    icon: const ImageIcon(
-                      AssetImage('assets/icons/icon_danmaku_close.png'),
-                      size: 24,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-                IconButton(
-                  onPressed: () {
-                    controller.showDanmuSettingsSheet();
-                  },
-                  icon: const ImageIcon(
-                    AssetImage('assets/icons/icon_danmaku_setting.png'),
-                    size: 24,
-                    color: Colors.white,
-                  ),
-                ),
-                Obx(
-                  () => Padding(
-                    padding: const EdgeInsets.only(left: 8.0),
-                    child: Text(
-                      controller.liveDuration.value,
-                      style: const TextStyle(fontSize: 14, color: Colors.white),
-                    ),
-                  ),
-                ),
-                const Expanded(child: Center()),
-                Visibility(
-                  visible: !Platform.isAndroid && !Platform.isIOS,
-                  child: IconButton(
-                    key: volumeButtonkey,
+            child: Obx(() {
+              if (controller.isVODMode.value) {
+                return buildVODBottomBar(controller, isFull: false);
+              }
+              return Row(
+                children: [
+                  IconButton(
                     onPressed: () {
-                      controller.showVolumeSlider(
-                        volumeButtonkey.currentContext!,
-                      );
+                      controller.refreshRoom();
                     },
                     icon: const Icon(
-                      Icons.volume_down,
+                      Remix.refresh_line,
+                      color: Colors.white,
+                    ),
+                  ),
+                  Offstage(
+                    offstage: controller.showDanmakuState.value,
+                    child: IconButton(
+                      onPressed: () => controller.showDanmakuState.value =
+                          !controller.showDanmakuState.value,
+                      icon: const ImageIcon(
+                        AssetImage('assets/icons/icon_danmaku_open.png'),
+                        size: 24,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                  Offstage(
+                    offstage: !controller.showDanmakuState.value,
+                    child: IconButton(
+                      onPressed: () => controller.showDanmakuState.value =
+                          !controller.showDanmakuState.value,
+                      icon: const ImageIcon(
+                        AssetImage('assets/icons/icon_danmaku_close.png'),
+                        size: 24,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () {
+                      controller.showDanmuSettingsSheet();
+                    },
+                    icon: const ImageIcon(
+                      AssetImage('assets/icons/icon_danmaku_setting.png'),
                       size: 24,
                       color: Colors.white,
                     ),
                   ),
-                ),
-                Offstage(
-                  offstage: isPortrait,
-                  child: TextButton(
-                    onPressed: () {
-                      controller.showQualitySheet();
-                    },
-                    child: Obx(
-                      () => Text(
-                        controller.currentQualityInfo.value,
+                  Obx(
+                    () => Padding(
+                      padding: const EdgeInsets.only(left: 8.0),
+                      child: Text(
+                        controller.liveDuration.value,
+                        style:
+                            const TextStyle(fontSize: 14, color: Colors.white),
+                      ),
+                    ),
+                  ),
+                  const Expanded(child: Center()),
+                  Visibility(
+                    visible: !Platform.isAndroid && !Platform.isIOS,
+                    child: IconButton(
+                      key: volumeButtonkey,
+                      onPressed: () {
+                        controller.showVolumeSlider(
+                          volumeButtonkey.currentContext!,
+                        );
+                      },
+                      icon: const Icon(
+                        Icons.volume_down,
+                        size: 24,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                  Offstage(
+                    offstage: isPortrait,
+                    child: TextButton(
+                      onPressed: () {
+                        controller.showQualitySheet();
+                      },
+                      child: Obx(
+                        () => Text(
+                          controller.currentQualityInfo.value,
+                          style: const TextStyle(
+                              color: Colors.white, fontSize: 15),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Offstage(
+                    offstage: isPortrait,
+                    child: TextButton(
+                      onPressed: () {
+                        controller.showPlayUrlsSheet();
+                      },
+                      child: Text(
+                        controller.currentLineInfo.value,
                         style:
                             const TextStyle(color: Colors.white, fontSize: 15),
                       ),
                     ),
                   ),
-                ),
-                Offstage(
-                  offstage: isPortrait,
-                  child: TextButton(
-                    onPressed: () {
-                      controller.showPlayUrlsSheet();
-                    },
-                    child: Text(
-                      controller.currentLineInfo.value,
-                      style: const TextStyle(color: Colors.white, fontSize: 15),
+                  Visibility(
+                    visible: !Platform.isAndroid && !Platform.isIOS,
+                    child: IconButton(
+                      onPressed: () {
+                        controller.enterSmallWindow();
+                      },
+                      icon: const Icon(
+                        Icons.picture_in_picture,
+                        color: Colors.white,
+                        size: 24,
+                      ),
                     ),
                   ),
-                ),
-                Visibility(
-                  visible: !Platform.isAndroid && !Platform.isIOS,
-                  child: IconButton(
+                  IconButton(
                     onPressed: () {
-                      controller.enterSmallWindow();
+                      controller.enterFullScreen();
                     },
                     icon: const Icon(
-                      Icons.picture_in_picture,
+                      Remix.fullscreen_line,
                       color: Colors.white,
-                      size: 24,
                     ),
                   ),
-                ),
-                IconButton(
-                  onPressed: () {
-                    controller.enterFullScreen();
-                  },
-                  icon: const Icon(
-                    Remix.fullscreen_line,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
-            ),
+                ],
+              );
+            }),
           ),
         ),
       ),

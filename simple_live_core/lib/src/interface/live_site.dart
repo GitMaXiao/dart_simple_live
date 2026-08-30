@@ -11,6 +11,7 @@ import '../model/live_category.dart';
 import '../model/live_play_quality.dart';
 import '../model/live_room_item.dart';
 import '../model/live_highlight_item.dart';
+import '../model/live_replay_item.dart';
 
 class LiveSite {
   /// 站点唯一ID
@@ -92,5 +93,19 @@ class LiveSite {
   /// 读取直播间AI看点/精彩切片列表
   Future<List<LiveHighlightItem>> getHighlights({required String roomId}) {
     return Future.value([]);
+  }
+
+  /// 读取主播历史录播/回放列表
+  Future<LiveReplayResult> getReplays(
+      {required String roomId, int page = 1}) {
+    return Future.value(LiveReplayResult(hasMore: false, items: []));
+  }
+
+  /// 解析录播视频播放链接
+  Future<LivePlayUrl> getReplayPlayUrls({required LiveReplayItem item}) {
+    if (item.playUrl.isNotEmpty) {
+      return Future.value(LivePlayUrl(urls: [item.playUrl]));
+    }
+    return Future.value(LivePlayUrl(urls: []));
   }
 }

@@ -64,6 +64,12 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
   RxList<LiveHighlightItem> highlights = RxList<LiveHighlightItem>();
   var loadingHighlights = false.obs;
 
+  /// 主播录播与往期回看
+  RxList<LiveReplayItem> replays = RxList<LiveReplayItem>();
+  var loadingReplays = false.obs;
+  var replayPage = 1;
+  var hasMoreReplays = true.obs;
+
   /// 滚动控制
   final ScrollController scrollController = ScrollController();
 
@@ -184,7 +190,10 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
   // 弹窗逻辑
 
   void refreshRoom() {
-    //messages.clear();
+    if (isVODMode.value && currentReplay.value != null) {
+      playReplay(currentReplay.value!);
+      return;
+    }
     superChats.clear();
     highlights.clear();
     liveDanmaku.stop();
@@ -357,6 +366,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
 
       getSuperChatMessage();
       loadHighlights();
+      loadReplays();
 
       addHistory();
       // 确认房间关注状态
@@ -510,6 +520,10 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
   @override
   void mediaEnd() async {
     super.mediaEnd();
+    if (isVODMode.value) {
+      Log.d("录播/回看视频播放结束");
+      return;
+    }
     if (mediaErrorRetryCount < 2) {
       Log.d("播放结束，尝试第${mediaErrorRetryCount + 1}次刷新");
       if (mediaErrorRetryCount == 1) {
@@ -537,6 +551,11 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
   @override
   void mediaError(String error) async {
     super.mediaEnd();
+    if (isVODMode.value) {
+      Log.d("录播/回看视频播放错误: $error");
+      SmartDialog.showToast("回看视频播放失败: $error");
+      return;
+    }
     if (mediaErrorRetryCount < 2) {
       Log.d("播放失败，尝试第${mediaErrorRetryCount + 1}次刷新");
       if (mediaErrorRetryCount == 1) {
@@ -593,6 +612,112 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
       Log.logPrint(e);
     } finally {
       loadingHighlights.value = false;
+    }
+  }
+
+  /// 读取主播录播与往期回看列表
+  Future<void> loadReplays() async {
+    try {
+      loadingReplays.value = true;
+      replayPage = 1;
+      replays.clear();
+      var result = await site.liveSite.getReplays(roomId: roomId, page: 1);
+      replays.value = result.items;
+      hasMoreReplays.value = result.hasMore;
+    } catch (e) {
+      Log.logPrint(e);
+    } finally {
+      loadingReplays.value = false;
+    }
+  }
+
+  /// 加载更多录播
+  Future<void> loadMoreReplays() async {
+    if (loadingReplays.value || !hasMoreReplays.value) {
+      return;
+    }
+    try {
+      loadingReplays.value = true;
+      replayPage++;
+      var result = await site.liveSite.getReplays(roomId: roomId, page: replayPage);
+      replays.addAll(result.items);
+      hasMoreReplays.value = result.hasMore;
+    } catch (e) {
+      Log.logPrint(e);
+    } finally {
+      loadingReplays.value = false;
+    }
+  }
+
+  /// 播放录播/回看视频
+  Future<void> playReplay(LiveReplayItem item) async {
+    try {
+      SmartDialog.showLoading(msg: "正在解析回看视频...");
+      var playUrl = await site.liveSite.getReplayPlayUrls(item: item);
+      if (playUrl.urls.isEmpty) {
+        SmartDialog.showToast("无法获取回看视频播放地址");
+        return;
+      }
+
+      // 切换为 VOD 点播模式
+      isVODMode.value = true;
+      currentReplay.value = item;
+      vodPosition.value = Duration.zero;
+      vodDuration.value = Duration.zero;
+
+      // 允许点播回退与Seek缓存
+      if (player.platform is NativePlayer) {
+        var pp = player.platform as NativePlayer;
+        try {
+          await pp.setProperty('force-seekable', 'yes');
+          await pp.setProperty('demuxer-max-back-bytes', '52428800');
+        } catch (_) {}
+      }
+
+      // 停止后台直播音频并重置
+      LiveAudioService.instance.stopSession();
+
+      // 打开点播视频流
+      var headers = playUrl.headers ?? {};
+      await player.open(
+        Media(
+          playUrl.urls.first,
+          httpHeaders: headers,
+        ),
+      );
+      setPlaybackRate(1.0);
+      SmartDialog.showToast("正在播放: ${item.title}");
+    } catch (e) {
+      Log.logPrint(e);
+      SmartDialog.showToast("播放录播失败: $e");
+    } finally {
+      SmartDialog.dismiss(status: SmartStatus.loading);
+    }
+  }
+
+  /// 退出回看，返回实时直播
+  Future<void> returnToLive() async {
+    try {
+      SmartDialog.showLoading(msg: "正在切回实时直播...");
+      isVODMode.value = false;
+      currentReplay.value = null;
+      vodPosition.value = Duration.zero;
+      vodDuration.value = Duration.zero;
+
+      // 恢复直播播放器低内存缓存配置
+      await initializePlayer();
+
+      if (playUrls.isNotEmpty) {
+        initPlaylist();
+      } else {
+        getPlayQualites();
+      }
+      SmartDialog.showToast("已切回实时直播");
+    } catch (e) {
+      Log.logPrint(e);
+      SmartDialog.showToast("切回直播失败: $e");
+    } finally {
+      SmartDialog.dismiss(status: SmartStatus.loading);
     }
   }
 

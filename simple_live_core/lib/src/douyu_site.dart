@@ -16,6 +16,7 @@ import 'package:simple_live_core/src/model/live_room_detail.dart';
 import 'package:simple_live_core/src/model/live_play_quality.dart';
 import 'package:simple_live_core/src/model/live_category_result.dart';
 import 'package:simple_live_core/src/model/live_highlight_item.dart';
+import 'package:simple_live_core/src/model/live_replay_item.dart';
 import 'package:html_unescape/html_unescape.dart';
 import 'package:simple_live_core/src/scripts/douyu_sign.dart';
 
@@ -456,6 +457,163 @@ class DouyuSite implements LiveSite {
       print("获取斗鱼看点失败: $e");
       return [];
     }
+  }
+
+  @override
+  Future<LiveReplayResult> getReplays({
+    required String roomId,
+    int page = 1,
+  }) async {
+    try {
+      // 1. 获取房间主播信息
+      var roomInfo = await _getRoomInfo(roomId);
+      var anchorName = roomInfo["owner_name"]?.toString() ?? "";
+      var roomName = roomInfo["room_name"]?.toString() ?? "";
+      var upId = roomInfo["up_id"]?.toString() ?? "";
+
+      List<LiveReplayItem> replays = [];
+      bool hasMore = false;
+
+      // 优先从主播视频列表获取
+      if (upId.isNotEmpty) {
+        try {
+          var authorVideos = await HttpClient.instance.getJson(
+            "https://v.douyu.com/wgapi/vod/center/authorVideos",
+            queryParameters: {
+              "up_id": upId,
+              "page": page,
+              "page_size": 20,
+            },
+            header: {
+              'referer': 'https://v.douyu.com/video/list/$upId',
+              'user-agent':
+                  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            },
+          );
+          if (authorVideos is Map && authorVideos["data"] != null) {
+            var videoList = authorVideos["data"]["video_list"];
+            if (videoList is List && videoList.isNotEmpty) {
+              int total = int.tryParse(authorVideos["data"]["total"]?.toString() ?? "0") ?? 0;
+              hasMore = total > page * 20;
+              for (var item in videoList) {
+                var hashId = item["hash_id"]?.toString() ?? item["vid"]?.toString() ?? "";
+                if (hashId.isEmpty) continue;
+                replays.add(
+                  LiveReplayItem(
+                    id: hashId,
+                    title: HtmlUnescape().convert(item["title"]?.toString() ?? ""),
+                    cover: item["video_pic"]?.toString() ?? item["cover"]?.toString() ?? "",
+                    duration: item["video_duration"]?.toString() ?? item["duration"]?.toString() ?? "",
+                    createTime: item["create_time"]?.toString() ?? item["publish_time"]?.toString() ?? "",
+                    author: anchorName,
+                    url: "https://v.douyu.com/show/$hashId",
+                    tag: (item["video_type_name"]?.toString() ?? "直播录播"),
+                    viewCount: item["view_num"]?.toString() ?? item["views"]?.toString() ?? "0",
+                    danmuCount: item["barrage_num"]?.toString() ?? item["danmu"]?.toString() ?? "0",
+                    extra: {"hash_id": hashId, "up_id": upId},
+                  ),
+                );
+              }
+            }
+          }
+        } catch (_) {}
+      }
+
+      // 如果主播空间没有视频或为空，使用搜索接口兜底
+      if (replays.isEmpty) {
+        var searchKey = anchorName.isNotEmpty ? anchorName : roomName;
+        if (searchKey.isNotEmpty) {
+          var searchResult = await HttpClient.instance.getJson(
+            "https://www.douyu.com/japi/search/api/searchVideo",
+            queryParameters: {
+              "kw": searchKey,
+              "page": page,
+              "pageSize": 20,
+              "filterType": 1,
+            },
+            header: {
+              'referer': 'https://www.douyu.com/$roomId',
+              'user-agent':
+                  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            },
+          );
+
+          if (searchResult is Map && searchResult["data"] != null) {
+            var relateVideo = searchResult["data"]["relateVideo"];
+            int total = int.tryParse(searchResult["data"]["totalVideo"]?.toString() ?? "0") ?? 0;
+            hasMore = total > page * 20;
+            if (relateVideo is List) {
+              for (var item in relateVideo) {
+                if (item is Map) {
+                  var hashId = item["hashId"]?.toString() ?? item["vid"]?.toString() ?? "";
+                  if (hashId.isEmpty) continue;
+                  var title = item["title"]?.toString() ?? "";
+                  replays.add(
+                    LiveReplayItem(
+                      id: hashId,
+                      title: HtmlUnescape().convert(title),
+                      cover: item["cover"]?.toString() ?? "",
+                      duration: item["duration"]?.toString() ?? "",
+                      createTime: item["publishTime"]?.toString() ?? "",
+                      author: item["owner"]?.toString() ?? anchorName,
+                      url: item["url"]?.toString() ?? "https://v.douyu.com/show/$hashId",
+                      tag: (item["is_ai"] == 1) ? "AI看点" : "精彩录播",
+                      viewCount: item["viewCount"]?.toString() ?? "0",
+                      danmuCount: item["danmu"]?.toString() ?? "0",
+                      extra: {"hash_id": hashId},
+                    ),
+                  );
+                }
+              }
+            }
+          }
+        }
+      }
+
+      return LiveReplayResult(hasMore: hasMore, items: replays);
+    } catch (e) {
+      print("获取斗鱼录播列表失败: $e");
+      return LiveReplayResult(hasMore: false, items: []);
+    }
+  }
+
+  @override
+  Future<LivePlayUrl> getReplayPlayUrls({required LiveReplayItem item}) async {
+    try {
+      if (item.playUrl.isNotEmpty) {
+        return LivePlayUrl(urls: [item.playUrl]);
+      }
+      var vid = item.id;
+      // 请求斗鱼点播视频播放信息
+      var result = await HttpClient.instance.getJson(
+        "https://v.douyu.com/wgapi/vod/videoshare/playInfo",
+        queryParameters: {
+          "vid": vid,
+        },
+        header: {
+          'referer': 'https://v.douyu.com/show/$vid',
+          'user-agent':
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        },
+      );
+
+      if (result is Map && result["data"] != null) {
+        var videoUrl = result["data"]["video_url"]?.toString() ??
+            result["data"]["hls_url"]?.toString() ??
+            result["data"]["url"]?.toString() ??
+            "";
+        if (videoUrl.isNotEmpty) {
+          return LivePlayUrl(urls: [videoUrl], headers: {
+            'referer': 'https://v.douyu.com/show/$vid',
+            'user-agent':
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          });
+        }
+      }
+    } catch (e) {
+      print("解析斗鱼录播播放流失败: $e");
+    }
+    return LivePlayUrl(urls: []);
   }
 }
 

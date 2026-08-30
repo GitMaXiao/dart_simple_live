@@ -16,6 +16,7 @@ import 'package:simple_live_core/src/model/live_room_detail.dart';
 import 'package:simple_live_core/src/model/live_play_quality.dart';
 import 'package:simple_live_core/src/model/live_category_result.dart';
 import 'package:simple_live_core/src/model/live_highlight_item.dart';
+import 'package:simple_live_core/src/model/live_replay_item.dart';
 
 class BiliBiliSite implements LiveSite {
   @override
@@ -614,5 +615,167 @@ class BiliBiliSite implements LiveSite {
         ?.replaceAll("\\", "");
     accessId = id ?? "";
     return accessId;
+  }
+
+  @override
+  Future<LiveReplayResult> getReplays({
+    required String roomId,
+    int page = 1,
+  }) async {
+    try {
+      var roomInfo = await getRoomInfo(roomId: roomId);
+      var uid = roomInfo["room_info"]?["uid"]?.toString() ??
+          roomInfo["anchor_info"]?["base_info"]?["uid"]?.toString() ??
+          "";
+      var uname = roomInfo["anchor_info"]?["base_info"]?["uname"]?.toString() ?? "";
+
+      if (uid.isEmpty) {
+        return LiveReplayResult(hasMore: false, items: []);
+      }
+
+      List<LiveReplayItem> replays = [];
+      bool hasMore = false;
+
+      // 1. 尝试获取主播直播回放列表
+      try {
+        var recordResp = await HttpClient.instance.getJson(
+          "https://api.live.bilibili.com/xlive/web-ucenter/v1/record/getLiveRecordList",
+          queryParameters: {
+            "uid": uid,
+            "page": page,
+            "page_size": 20,
+          },
+          header: await getHeader(),
+        );
+        if (recordResp is Map && recordResp["data"] != null) {
+          var list = recordResp["data"]["list"];
+          if (list is List && list.isNotEmpty) {
+            int total = int.tryParse(recordResp["data"]["count"]?.toString() ?? "0") ?? 0;
+            hasMore = total > page * 20;
+            for (var item in list) {
+              var vid = item["vid"]?.toString() ?? item["room_id"]?.toString() ?? "";
+              var bvid = item["bvid"]?.toString() ?? "";
+              var duration = item["duration"]?.toString() ?? "";
+              replays.add(
+                LiveReplayItem(
+                  id: bvid.isNotEmpty ? bvid : vid,
+                  title: item["title"]?.toString() ?? "直播录播",
+                  cover: item["cover"]?.toString() ?? "",
+                  duration: duration,
+                  createTime: item["start_time"]?.toString() ?? "",
+                  author: uname,
+                  url: bvid.isNotEmpty ? "https://www.bilibili.com/video/$bvid" : "",
+                  tag: "直播回放",
+                  extra: {"bvid": bvid, "uid": uid},
+                ),
+              );
+            }
+          }
+        }
+      } catch (_) {}
+
+      // 2. 如果回放列表为空，获取主播空间最新投稿视频
+      if (replays.isEmpty) {
+        var spaceUrl =
+            "https://api.bilibili.com/x/space/wbi/arc/search?mid=$uid&ps=20&pn=$page&order=pubdate";
+        var queryParams = await getWbiSign(spaceUrl);
+        var spaceResp = await HttpClient.instance.getJson(
+          "https://api.bilibili.com/x/space/wbi/arc/search",
+          queryParameters: queryParams,
+          header: await getHeader(),
+        );
+
+        if (spaceResp is Map && spaceResp["data"] != null) {
+          var vlist = spaceResp["data"]["list"]?["vlist"];
+          int total = int.tryParse(spaceResp["data"]["page"]?["count"]?.toString() ?? "0") ?? 0;
+          hasMore = total > page * 20;
+          if (vlist is List) {
+            for (var item in vlist) {
+              var bvid = item["bvid"]?.toString() ?? "";
+              if (bvid.isEmpty) continue;
+              var length = item["length"]?.toString() ?? "";
+              replays.add(
+                LiveReplayItem(
+                  id: bvid,
+                  title: item["title"]?.toString() ?? "",
+                  cover: "${item["pic"] ?? ""}@400w.jpg",
+                  duration: length,
+                  createTime: item["created"] != null
+                      ? DateTime.fromMillisecondsSinceEpoch((int.tryParse(item["created"].toString()) ?? 0) * 1000).toString().substring(0, 16)
+                      : "",
+                  author: item["author"]?.toString() ?? uname,
+                  url: "https://www.bilibili.com/video/$bvid",
+                  tag: "主播视频",
+                  viewCount: item["play"]?.toString() ?? "0",
+                  danmuCount: item["video_review"]?.toString() ?? "0",
+                  extra: {"bvid": bvid, "mid": uid},
+                ),
+              );
+            }
+          }
+        }
+      }
+
+      return LiveReplayResult(hasMore: hasMore, items: replays);
+    } catch (e) {
+      print("获取B站录播列表失败: $e");
+      return LiveReplayResult(hasMore: false, items: []);
+    }
+  }
+
+  @override
+  Future<LivePlayUrl> getReplayPlayUrls({required LiveReplayItem item}) async {
+    try {
+      if (item.playUrl.isNotEmpty) {
+        return LivePlayUrl(urls: [item.playUrl]);
+      }
+      var bvid = item.extra?["bvid"]?.toString() ?? item.id;
+      if (bvid.isEmpty) {
+        return LivePlayUrl(urls: []);
+      }
+
+      // 1. 获取视频 cid
+      var pageResp = await HttpClient.instance.getJson(
+        "https://api.bilibili.com/x/player/pagelist",
+        queryParameters: {"bvid": bvid},
+        header: await getHeader(),
+      );
+      var cid = "";
+      if (pageResp is Map && pageResp["data"] is List && (pageResp["data"] as List).isNotEmpty) {
+        cid = pageResp["data"][0]["cid"]?.toString() ?? "";
+      }
+      if (cid.isEmpty) {
+        return LivePlayUrl(urls: []);
+      }
+
+      // 2. 获取视频点播 playurl
+      var playUrl =
+          "https://api.bilibili.com/x/player/wbi/playurl?bvid=$bvid&cid=$cid&qn=64&fnval=1";
+      var queryParams = await getWbiSign(playUrl);
+      var playResp = await HttpClient.instance.getJson(
+        "https://api.bilibili.com/x/player/wbi/playurl",
+        queryParameters: queryParams,
+        header: await getHeader(),
+      );
+
+      if (playResp is Map && playResp["data"] != null) {
+        var durl = playResp["data"]["durl"];
+        if (durl is List && durl.isNotEmpty) {
+          var videoUrl = durl[0]["url"]?.toString() ?? "";
+          if (videoUrl.isNotEmpty) {
+            return LivePlayUrl(
+              urls: [videoUrl],
+              headers: {
+                "referer": "https://www.bilibili.com/video/$bvid",
+                "user-agent": kDefaultUserAgent,
+              },
+            );
+          }
+        }
+      }
+    } catch (e) {
+      print("解析B站录播播放流失败: $e");
+    }
+    return LivePlayUrl(urls: []);
   }
 }

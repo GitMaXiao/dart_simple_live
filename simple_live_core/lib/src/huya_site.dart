@@ -5,9 +5,6 @@ import 'package:simple_live_core/simple_live_core.dart';
 import 'package:simple_live_core/src/common/http_client.dart';
 import 'package:crypto/crypto.dart';
 import 'package:simple_live_core/src/model/tars/get_cdn_token_ex_req.dart';
-import 'package:simple_live_core/src/model/tars/get_cdn_token_ex_resp.dart';
-import 'package:simple_live_core/src/model/tars/get_cdn_token_req.dart';
-import 'package:simple_live_core/src/model/tars/get_cdn_token_resp.dart';
 import 'package:simple_live_core/src/model/tars/huya_user_id.dart';
 import 'package:tars_dart/tars/net/base_tars_http.dart';
 
@@ -670,6 +667,114 @@ class HuyaSite implements LiveSite {
   @override
   Future<List<LiveHighlightItem>> getHighlights({required String roomId}) {
     return Future.value([]);
+  }
+
+  @override
+  Future<LiveReplayResult> getReplays({
+    required String roomId,
+    int page = 1,
+  }) async {
+    try {
+      // 1. 获取虎牙房间详情，提取主播名称
+      var detail = await getRoomDetail(roomId: roomId);
+      var anchorName = detail.userName;
+      if (anchorName.isEmpty) {
+        return LiveReplayResult(hasMore: false, items: []);
+      }
+
+      List<LiveReplayItem> replays = [];
+      bool hasMore = false;
+
+      // 2. 请求虎牙视频搜索接口 (type=2 表示视频/录像)
+      var searchResult = await HttpClient.instance.getJson(
+        "https://search.huya.com/main/search",
+        queryParameters: {
+          "q": anchorName,
+          "type": 2,
+          "page": page,
+          "pageSize": 20,
+        },
+        header: {
+          'referer': 'https://v.huya.com/',
+          'user-agent':
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        },
+      );
+
+      if (searchResult is Map && searchResult["response"] != null) {
+        var resp = searchResult["response"];
+        int total = int.tryParse(resp["total"]?.toString() ?? "0") ?? 0;
+        hasMore = total > page * 20;
+        var docs = resp["docs"];
+        if (docs is List) {
+          for (var item in docs) {
+            if (item is Map) {
+              var vid = item["v_id"]?.toString() ?? item["vid"]?.toString() ?? item["id"]?.toString() ?? "";
+              if (vid.isEmpty) continue;
+              replays.add(
+                LiveReplayItem(
+                  id: vid,
+                  title: item["v_title"]?.toString() ?? item["title"]?.toString() ?? "",
+                  cover: item["v_cover"]?.toString() ?? item["cover"]?.toString() ?? "",
+                  duration: item["v_duration"]?.toString() ?? item["duration"]?.toString() ?? "",
+                  createTime: item["v_upload_time"]?.toString() ?? item["upload_time"]?.toString() ?? "",
+                  author: item["v_author"]?.toString() ?? anchorName,
+                  url: "https://v.huya.com/play/$vid.html",
+                  tag: "主播录播",
+                  viewCount: item["v_views"]?.toString() ?? item["views"]?.toString() ?? "0",
+                  extra: {"vid": vid},
+                ),
+              );
+            }
+          }
+        }
+      }
+
+      return LiveReplayResult(hasMore: hasMore, items: replays);
+    } catch (e) {
+      print("获取虎牙录播列表失败: $e");
+      return LiveReplayResult(hasMore: false, items: []);
+    }
+  }
+
+  @override
+  Future<LivePlayUrl> getReplayPlayUrls({required LiveReplayItem item}) async {
+    try {
+      if (item.playUrl.isNotEmpty) {
+        return LivePlayUrl(urls: [item.playUrl]);
+      }
+      var vid = item.id;
+      // 请求虎牙点播视频播放地址
+      var result = await HttpClient.instance.getJson(
+        "https://v-api-gateway.huya.com/play/by_vid",
+        queryParameters: {
+          "vid": vid,
+        },
+        header: {
+          'referer': 'https://v.huya.com/play/$vid.html',
+          'user-agent':
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        },
+      );
+
+      if (result is Map && result["data"] != null) {
+        var videoInfo = result["data"]["video_info"] ?? result["data"];
+        var videoUrl = videoInfo["url"]?.toString() ??
+            videoInfo["m3u8_url"]?.toString() ??
+            videoInfo["mp4_url"]?.toString() ??
+            "";
+        if (videoUrl.isNotEmpty) {
+          return LivePlayUrl(urls: [videoUrl], headers: {
+            'referer': 'https://v.huya.com/',
+            'user-agent':
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          });
+        }
+      }
+    } catch (e) {
+      print("解析虎牙录播播放流失败: $e");
+    }
+    return LivePlayUrl(urls: []);
   }
 }
 
