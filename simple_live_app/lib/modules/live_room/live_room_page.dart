@@ -24,6 +24,8 @@ import 'package:simple_live_app/widgets/settings/settings_card.dart';
 import 'package:simple_live_app/widgets/settings/settings_number.dart';
 import 'package:simple_live_app/widgets/settings/settings_switch.dart';
 import 'package:simple_live_app/widgets/superchat_card.dart';
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:simple_live_core/simple_live_core.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
@@ -691,7 +693,8 @@ class LiveRoomPage extends GetView<LiveRoomController> {
   Widget buildHighlights(BuildContext context) {
     return KeepAliveWrapper(
       child: Obx(() {
-        if (controller.loadingHighlights.value) {
+        if (controller.loadingHighlights.value &&
+            controller.highlights.isEmpty) {
           return const Center(
             child: CircularProgressIndicator(),
           );
@@ -722,193 +725,51 @@ class LiveRoomPage extends GetView<LiveRoomController> {
           );
         }
 
-        return ListView.separated(
-          padding: AppStyle.edgeInsetsA12,
-          itemCount: controller.highlights.length,
-          separatorBuilder: (_, i) => AppStyle.vGap12,
+        return ListView.builder(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          itemCount: controller.highlights.length + 1,
           itemBuilder: (context, index) {
-            var item = controller.highlights[index];
-            return InkWell(
-              borderRadius: BorderRadius.circular(8),
-              onTap: () {
-                if (item.url.isNotEmpty) {
-                  launchUrlString(item.url,
-                      mode: LaunchMode.externalApplication);
-                }
-              },
-              child: Container(
+            if (index == 0) {
+              return Container(
+                margin: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).cardColor,
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.white.withAlpha(10)
+                      : Colors.black.withAlpha(6),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: Colors.grey.withAlpha(25),
-                  ),
                 ),
-                padding: AppStyle.edgeInsetsA8,
                 child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // 封面与时长
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(6),
-                      child: Stack(
-                        children: [
-                          NetImage(
-                            item.cover,
-                            width: 120,
-                            height: 68,
-                          ),
-                          if (item.duration.isNotEmpty)
-                            Positioned(
-                              right: 4,
-                              bottom: 4,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 4,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withAlpha(180),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  item.duration,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10,
-                                  ),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    AppStyle.hGap12,
-                    // 信息部分
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // 标题与标签
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                margin: const EdgeInsets.only(top: 2, right: 4),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 4,
-                                  vertical: 1,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .primary
-                                      .withAlpha(40),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  item.tag,
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    color:
-                                        Theme.of(context).colorScheme.primary,
-                                  ),
-                                ),
-                              ),
-                              Expanded(
-                                child: Text(
-                                  item.title,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          if (item.description.isNotEmpty) ...[
-                            AppStyle.vGap4,
-                            Text(
-                              item.description,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
-                                    ?.color
-                                    ?.withAlpha(180),
-                              ),
-                            ),
-                          ],
-                          AppStyle.vGap4,
-                          // 作者与发布时间
-                          Row(
-                            children: [
-                              if (item.author.isNotEmpty)
-                                Expanded(
-                                  child: Text(
-                                    item.author,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      color: Colors.grey,
-                                    ),
-                                  ),
-                                ),
-                              if (item.createTime.isNotEmpty)
-                                Text(
-                                  item.createTime,
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                            ],
-                          ),
-                          AppStyle.vGap4,
-                          // 播放量与弹幕数
-                          Row(
-                            children: [
-                              const Icon(
-                                Remix.play_line,
-                                size: 12,
-                                color: Colors.grey,
-                              ),
-                              AppStyle.hGap4,
-                              Text(
-                                item.viewCount,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                              AppStyle.hGap8,
-                              const Icon(
-                                Remix.chat_1_line,
-                                size: 12,
-                                color: Colors.grey,
-                              ),
-                              AppStyle.hGap4,
-                              Text(
-                                item.danmuCount,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                    const Text("🙃 ", style: TextStyle(fontSize: 13)),
+                    Text(
+                      "主播不在，点击看点可以回看哦 ⤵",
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context)
+                            .colorScheme
+                            .primary
+                            .withAlpha(220),
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
                 ),
+              );
+            }
+            var item = controller.highlights[index - 1];
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              child: HighlightCardWidget(
+                item: item,
+                onTap: () {
+                  if (item.url.isNotEmpty) {
+                    launchUrlString(item.url,
+                        mode: LaunchMode.externalApplication);
+                  }
+                },
               ),
             );
           },
@@ -1480,5 +1341,316 @@ class LiveRoomPage extends GetView<LiveRoomController> {
       return "${m.toString().padLeft(2, '0')}分钟${s.toString().padLeft(2, '0')}秒";
     }
     return "${s.toString().padLeft(2, '0')}秒";
+  }
+}
+
+class HighlightCardWidget extends StatefulWidget {
+  final LiveHighlightItem item;
+  final VoidCallback? onTap;
+
+  const HighlightCardWidget({
+    Key? key,
+    required this.item,
+    this.onTap,
+  }) : super(key: key);
+
+  @override
+  State<HighlightCardWidget> createState() => _HighlightCardWidgetState();
+}
+
+class _HighlightCardWidgetState extends State<HighlightCardWidget> {
+  bool _expandedExcerpts = false;
+  bool _isLiked = false;
+  int _likeCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _likeCount = widget.item.likeCount;
+  }
+
+  String _formatHeat(String count) {
+    int num = int.tryParse(count) ?? 0;
+    if (num >= 10000) {
+      return "${(num / 10000).toStringAsFixed(1)}万热度";
+    } else if (num > 0) {
+      return "$num热度";
+    }
+    return "";
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    var isDark = Theme.of(context).brightness == Brightness.dark;
+    var cardBg = isDark ? const Color(0xFF181A24) : Colors.grey.shade100;
+    var textPrimary = isDark ? Colors.white : Colors.black87;
+    var textSecondary = isDark ? Colors.grey.shade300 : Colors.grey.shade700;
+    var textMuted = isDark ? Colors.grey.shade400 : Colors.grey.shade600;
+
+    var visibleExcerpts = _expandedExcerpts
+        ? widget.item.excerpts
+        : widget.item.excerpts.take(3).toList();
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: widget.onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: cardBg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isDark
+                ? Colors.white.withAlpha(15)
+                : Colors.black.withAlpha(10),
+          ),
+        ),
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 1. 顶部播放按钮与时长 + 热度
+            Row(
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? Colors.white.withAlpha(20)
+                        : Colors.black.withAlpha(10),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Remix.play_fill,
+                        size: 14,
+                        color: textPrimary,
+                      ),
+                      if (widget.item.duration.isNotEmpty) ...[
+                        const SizedBox(width: 6),
+                        Text(
+                          widget.item.duration,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: textPrimary,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const Spacer(),
+                if (widget.item.viewCount.isNotEmpty &&
+                    widget.item.viewCount != '0')
+                  Text(
+                    _formatHeat(widget.item.viewCount),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: textMuted,
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            // 2. 标题
+            Text(
+              widget.item.title,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                height: 1.35,
+                color: textPrimary,
+              ),
+            ),
+            // 3. AI 描述与战况摘要
+            if (widget.item.description.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                widget.item.description,
+                style: TextStyle(
+                  fontSize: 13,
+                  height: 1.5,
+                  color: textSecondary,
+                ),
+              ),
+            ],
+            const SizedBox(height: 12),
+            // 4. 底部互动按钮栏（点赞 / 表态 / 分享 / 纠错）
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildActionBtn(
+                  icon: _isLiked ? Remix.heart_fill : Remix.heart_line,
+                  iconColor: _isLiked ? Colors.redAccent : textMuted,
+                  label: _likeCount > 0 ? "点赞 $_likeCount" : "点赞",
+                  textColor: _isLiked ? Colors.redAccent : textMuted,
+                  onTap: () {
+                    setState(() {
+                      _isLiked = !_isLiked;
+                      if (_isLiked) {
+                        _likeCount++;
+                      } else {
+                        _likeCount = (_likeCount - 1).clamp(0, 99999);
+                      }
+                    });
+                    SmartDialog.showToast(_isLiked ? "已点赞" : "取消点赞");
+                  },
+                ),
+                _buildActionBtn(
+                  icon: Remix.emotion_happy_line,
+                  iconColor: textMuted,
+                  label: "表态",
+                  textColor: textMuted,
+                  onTap: () {
+                    SmartDialog.showToast("已表态");
+                  },
+                ),
+                _buildActionBtn(
+                  icon: Remix.share_forward_line,
+                  iconColor: textMuted,
+                  label: "分享",
+                  textColor: textMuted,
+                  onTap: () {
+                    if (widget.item.url.isNotEmpty) {
+                      SharePlus.instance.share(ShareParams(
+                          text: "${widget.item.title}\n${widget.item.url}"));
+                    }
+                  },
+                ),
+                _buildActionBtn(
+                  icon: Remix.error_warning_line,
+                  iconColor: textMuted,
+                  label: "纠错",
+                  textColor: textMuted,
+                  onTap: () {
+                    SmartDialog.showToast("感谢反馈");
+                  },
+                ),
+              ],
+            ),
+            // 5. 精选弹幕列表
+            if (widget.item.excerpts.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Divider(
+                height: 1,
+                thickness: 0.5,
+                color: isDark
+                    ? Colors.white.withAlpha(20)
+                    : Colors.black.withAlpha(15),
+              ),
+              const SizedBox(height: 8),
+              ...visibleExcerpts.map((ex) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          Remix.chat_quote_line,
+                          size: 14,
+                          color: textMuted.withAlpha(160),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            ex.content,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: textSecondary,
+                              height: 1.3,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              "赞",
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: textMuted,
+                              ),
+                            ),
+                            const SizedBox(width: 2),
+                            Icon(
+                              Remix.heart_line,
+                              size: 11,
+                              color: textMuted,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  )),
+              if (widget.item.excerpts.length > 3)
+                Center(
+                  child: InkWell(
+                    onTap: () {
+                      setState(() {
+                        _expandedExcerpts = !_expandedExcerpts;
+                      });
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 6, bottom: 2),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _expandedExcerpts ? "收起弹幕" : "更多弹幕",
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: textMuted,
+                            ),
+                          ),
+                          Icon(
+                            _expandedExcerpts
+                                ? Remix.arrow_up_s_line
+                                : Remix.arrow_down_s_line,
+                            size: 14,
+                            color: textMuted,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionBtn({
+    required IconData icon,
+    required Color iconColor,
+    required String label,
+    required Color textColor,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(6),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: iconColor),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: textColor,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

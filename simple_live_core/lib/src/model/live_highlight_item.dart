@@ -1,5 +1,37 @@
 import 'dart:convert';
 
+class LiveHighlightExcerpt {
+  final String content;
+  final String dnick;
+  final String icon;
+  final int likeCount;
+
+  LiveHighlightExcerpt({
+    required this.content,
+    this.dnick = "",
+    this.icon = "",
+    this.likeCount = 0,
+  });
+
+  factory LiveHighlightExcerpt.fromJson(Map<String, dynamic> json) {
+    return LiveHighlightExcerpt(
+      content: json['content']?.toString() ?? '',
+      dnick: json['dnick']?.toString() ?? '',
+      icon: json['icon']?.toString() ?? '',
+      likeCount: json['likeCount'] is int
+          ? json['likeCount']
+          : (int.tryParse(json['likeCount']?.toString() ?? '0') ?? 0),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'content': content,
+        'dnick': dnick,
+        'icon': icon,
+        'likeCount': likeCount,
+      };
+}
+
 class LiveHighlightItem {
   /// 唯一标识（vid / hashId）
   final String id;
@@ -34,6 +66,15 @@ class LiveHighlightItem {
   /// 简要描述/AI摘要
   final String description;
 
+  /// 点赞数
+  final int likeCount;
+
+  /// 精选弹幕列表
+  final List<LiveHighlightExcerpt> excerpts;
+
+  /// 额外元数据
+  final Map<String, dynamic> extra;
+
   LiveHighlightItem({
     required this.id,
     required this.title,
@@ -46,6 +87,9 @@ class LiveHighlightItem {
     this.viewCount = "0",
     this.danmuCount = "0",
     this.description = "",
+    this.likeCount = 0,
+    this.excerpts = const [],
+    this.extra = const {},
   });
 
   @override
@@ -62,6 +106,9 @@ class LiveHighlightItem {
       "viewCount": viewCount,
       "danmuCount": danmuCount,
       "description": description,
+      "likeCount": likeCount,
+      "excerpts": excerpts.map((e) => e.toJson()).toList(),
+      "extra": extra,
     });
   }
 }

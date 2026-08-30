@@ -435,8 +435,21 @@ class DouyuSite implements LiveSite {
                     "${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
               }
 
-              var excerpts = item["excerpts"] as List? ?? [];
-              var danmuCount = excerpts.length.toString();
+              var excerptsList = <LiveHighlightExcerpt>[];
+              if (item["excerpts"] is List) {
+                for (var ex in item["excerpts"]) {
+                  if (ex is Map) {
+                    excerptsList.add(
+                      LiveHighlightExcerpt(
+                        content: ex["content"]?.toString() ?? "",
+                        dnick: ex["dnick"]?.toString() ?? "",
+                        icon: ex["icon"]?.toString() ?? "",
+                        likeCount: ex["likeCount"] ?? 0,
+                      ),
+                    );
+                  }
+                }
+              }
 
               highlights.add(
                 LiveHighlightItem(
@@ -454,10 +467,15 @@ class DouyuSite implements LiveSite {
                       "https://www.douyu.com/$roomId",
                   tag: "AI看点",
                   viewCount: (item["heat"] ?? 0).toString(),
-                  danmuCount: danmuCount,
+                  danmuCount: excerptsList.length.toString(),
                   description: item["describe"]?.toString() ??
                       item["summary"]?.toString() ??
                       "",
+                  likeCount: item["likeCount"] ?? 0,
+                  excerpts: excerptsList,
+                  extra: item is Map<String, dynamic>
+                      ? item
+                      : Map<String, dynamic>.from(item),
                 ),
               );
             }
