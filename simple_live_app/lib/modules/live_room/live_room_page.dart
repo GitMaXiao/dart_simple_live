@@ -727,39 +727,9 @@ class LiveRoomPage extends GetView<LiveRoomController> {
 
         return ListView.builder(
           padding: const EdgeInsets.symmetric(vertical: 8),
-          itemCount: controller.highlights.length + 1,
+          itemCount: controller.highlights.length,
           itemBuilder: (context, index) {
-            if (index == 0) {
-              return Container(
-                margin: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).brightness == Brightness.dark
-                      ? Colors.white.withAlpha(10)
-                      : Colors.black.withAlpha(6),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text("🙃 ", style: TextStyle(fontSize: 13)),
-                    Text(
-                      "主播不在，点击看点可以回看哦 ⤵",
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Theme.of(context)
-                            .colorScheme
-                            .primary
-                            .withAlpha(220),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }
-            var item = controller.highlights[index - 1];
+            var item = controller.highlights[index];
             return Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
               child: HighlightCardWidget(
