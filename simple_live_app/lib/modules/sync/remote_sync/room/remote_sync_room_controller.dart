@@ -71,6 +71,25 @@ class RemoteSyncRoomController extends BaseController {
     connect();
   }
 
+  void editSyncServer() async {
+    var defaultUrl = SignalRService.kDefaultUrl;
+    var currentUrl = AppSettingsController.instance.syncServerUrl.value.trim();
+    var input = await Utils.showEditTextDialog(
+      currentUrl.isEmpty ? defaultUrl : currentUrl,
+      title: "设置同步服务地址",
+      hintText: "请输入SignalR同步服务地址，如 $defaultUrl",
+    );
+    if (input != null) {
+      if (input.trim() == defaultUrl) {
+        AppSettingsController.instance.setSyncServerUrl("");
+      } else {
+        AppSettingsController.instance.setSyncServerUrl(input.trim());
+      }
+      SmartDialog.showToast("已保存同步服务地址");
+      connect();
+    }
+  }
+
   void createRoom() async {
     try {
       var resp = await signalR.createRoom();
@@ -78,11 +97,14 @@ class RemoteSyncRoomController extends BaseController {
         currentRoomId.value = resp.data!;
         _startTimer();
       } else {
-        SmartDialog.showToast(resp.message.isNotEmpty ? resp.message : "创建房间失败");
+        var msg = resp.message.isNotEmpty ? resp.message : "创建房间失败";
+        SmartDialog.showToast(msg);
+        Log.e("createRoom failed: $msg", StackTrace.current);
         state.value = SignalRConnectionState.disconnected;
       }
     } catch (e) {
-      SmartDialog.showToast("创建房间失败，请检查网络");
+      Log.e("createRoom exception: $e", StackTrace.current);
+      SmartDialog.showToast("创建房间失败: $e");
       state.value = SignalRConnectionState.disconnected;
     }
   }
@@ -103,11 +125,14 @@ class RemoteSyncRoomController extends BaseController {
     try {
       var resp = await signalR.joinRoom(roomId);
       if (!resp.isSuccess) {
-        SmartDialog.showToast(resp.message.isNotEmpty ? resp.message : "加入房间失败");
+        var msg = resp.message.isNotEmpty ? resp.message : "加入房间失败";
+        SmartDialog.showToast(msg);
+        Log.e("joinRoom failed: $msg", StackTrace.current);
         state.value = SignalRConnectionState.disconnected;
       }
     } catch (e) {
-      SmartDialog.showToast("加入房间失败，请检查网络");
+      Log.e("joinRoom exception: $e", StackTrace.current);
+      SmartDialog.showToast("加入房间失败: $e");
       state.value = SignalRConnectionState.disconnected;
     }
   }

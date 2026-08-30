@@ -159,6 +159,9 @@ class AppSettingsController extends GetxController {
     autoEnableNotifyOnFollow.value = LocalStorageService.instance
         .getValue(LocalStorageService.kAutoEnableNotifyOnFollow, true);
 
+    syncServerUrl.value = LocalStorageService.instance
+        .getValue(LocalStorageService.kSyncServerUrl, "");
+
     initSiteSort();
     initHomeSort();
 
@@ -550,5 +553,12 @@ class AppSettingsController extends GetxController {
     autoEnableNotifyOnFollow.value = e;
     LocalStorageService.instance
         .setValue(LocalStorageService.kAutoEnableNotifyOnFollow, e);
+  }
+
+  var syncServerUrl = "".obs;
+  void setSyncServerUrl(String url) {
+    syncServerUrl.value = url.trim();
+    LocalStorageService.instance
+        .setValue(LocalStorageService.kSyncServerUrl, syncServerUrl.value);
   }
 }

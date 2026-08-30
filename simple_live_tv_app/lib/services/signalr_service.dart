@@ -53,7 +53,14 @@ class SignalRService {
     try {
       state = SignalRConnectionState.connecting;
       _stateStreamController.add(state);
-      hubConnection = HubConnectionBuilder().withUrl(kUrl).build();
+
+      final options = HttpConnectionOptions(
+        requestTimeout: 15000,
+      );
+
+      hubConnection = HubConnectionBuilder()
+          .withUrl(kUrl, options: options)
+          .build();
       hubConnection!.onclose(({Exception? error}) {
         state = SignalRConnectionState.disconnected;
         _stateStreamController.add(state);
@@ -159,16 +166,16 @@ class Resp<T> {
   final T? data;
   Resp(this.isSuccess, this.message, this.data);
 
-  factory Resp.fromJson(Map<String, dynamic> json) {
+  factory Resp.fromJson(Map json) {
     return Resp(
-      json['isSuccess'],
-      json['message'] ?? "",
-      json['data'],
+      json['isSuccess'] == true,
+      json['message']?.toString() ?? "",
+      json['data'] as T?,
     );
   }
 
   factory Resp.fromObject(Object? obj) {
-    if (obj is Map<String, dynamic>) {
+    if (obj is Map) {
       return Resp.fromJson(obj);
     }
     return Resp(false, "unknown", null);
@@ -192,19 +199,19 @@ class RoomUser {
     this.isCreator = false,
   });
 
-  factory RoomUser.fromJson(Map<String, dynamic> json) {
+  factory RoomUser.fromJson(Map json) {
     return RoomUser(
-      connectionId: json['connectionId'],
-      shortId: json['shortId'],
-      platform: json['platform'],
-      version: json['version'],
-      app: json['app'],
-      isCreator: json['isCreator'],
+      connectionId: json['connectionId']?.toString() ?? "",
+      shortId: json['shortId']?.toString() ?? "",
+      platform: json['platform']?.toString() ?? "",
+      version: json['version']?.toString() ?? "",
+      app: json['app']?.toString() ?? "",
+      isCreator: json['isCreator'] == true,
     );
   }
 
   factory RoomUser.fromObject(Object? obj) {
-    if (obj is Map<String, dynamic>) {
+    if (obj is Map) {
       return RoomUser.fromJson(obj);
     }
     return RoomUser(

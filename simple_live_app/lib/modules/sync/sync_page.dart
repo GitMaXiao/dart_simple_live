@@ -3,8 +3,10 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:remixicon/remixicon.dart';
 import 'package:simple_live_app/app/app_style.dart';
+import 'package:simple_live_app/app/controller/app_settings_controller.dart';
 import 'package:simple_live_app/app/utils.dart';
 import 'package:simple_live_app/routes/route_path.dart';
+import 'package:simple_live_app/services/signalr_service.dart';
 import 'package:simple_live_app/widgets/settings/settings_card.dart';
 
 class SyncPage extends StatelessWidget {
@@ -95,6 +97,41 @@ class SyncPage extends StatelessWidget {
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () {
                     Get.toNamed(RoutePath.kRemoteSyncWebDav);
+                  },
+                ),
+                AppStyle.divider,
+                Obx(
+                  () {
+                    var customUrl =
+                        Get.find<AppSettingsController>().syncServerUrl.value.trim();
+                    return ListTile(
+                      title: const Text("同步服务地址"),
+                      leading: const Icon(Remix.server_line),
+                      subtitle: Text(
+                        customUrl.isEmpty
+                            ? "默认: ${SignalRService.kDefaultUrl}"
+                            : "自定义: $customUrl",
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () async {
+                        var defaultUrl = SignalRService.kDefaultUrl;
+                        var input = await Utils.showEditTextDialog(
+                          customUrl.isEmpty ? defaultUrl : customUrl,
+                          title: "同步服务地址",
+                          hintText: "请输入SignalR同步服务地址，如 $defaultUrl",
+                        );
+                        if (input != null) {
+                          if (input.trim() == defaultUrl) {
+                            Get.find<AppSettingsController>().setSyncServerUrl("");
+                          } else {
+                            Get.find<AppSettingsController>()
+                                .setSyncServerUrl(input.trim());
+                          }
+                          SmartDialog.showToast("已更新同步服务地址");
+                        }
+                      },
+                    );
                   },
                 ),
               ],

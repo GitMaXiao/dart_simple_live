@@ -122,12 +122,27 @@ class RemoteSyncRoomPage extends GetView<RemoteSyncRoomController> {
                   return ListTile(
                     leading: const Icon(Icons.cloud_off, color: Colors.red),
                     title: const Text("创建/连接房间失败"),
-                    subtitle: const Text("请检查网络连接后重试"),
-                    trailing: FilledButton.tonal(
-                      onPressed: () {
-                        controller.retry();
-                      },
-                      child: const Text("重试"),
+                    subtitle: Text(
+                      "服务地址: ${SignalRService.kUrl}\n请检查网络或配置自定义服务地址",
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    isThreeLine: true,
+                    trailing: Wrap(
+                      spacing: 8,
+                      children: [
+                        OutlinedButton(
+                          onPressed: () {
+                            controller.editSyncServer();
+                          },
+                          child: const Text("修改地址"),
+                        ),
+                        FilledButton.tonal(
+                          onPressed: () {
+                            controller.retry();
+                          },
+                          child: const Text("重试"),
+                        ),
+                      ],
                     ),
                   );
                 }

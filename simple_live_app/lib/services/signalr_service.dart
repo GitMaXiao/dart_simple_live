@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:signalr_netcore/signalr_client.dart';
+import 'package:simple_live_app/app/controller/app_settings_controller.dart';
 import 'package:simple_live_app/app/log.dart';
 import 'package:simple_live_app/app/utils.dart';
 
@@ -12,7 +13,17 @@ enum SignalRConnectionState {
 }
 
 class SignalRService {
-  static const String kUrl = "https://sync1.nsapps.cn/sync";
+  static const String kDefaultUrl = "https://sync1.nsapps.cn/sync";
+
+  static String get kUrl {
+    try {
+      var customUrl = AppSettingsController.instance.syncServerUrl.value.trim();
+      if (customUrl.isNotEmpty) {
+        return customUrl;
+      }
+    } catch (_) {}
+    return kDefaultUrl;
+  }
 
   SignalRConnectionState state = SignalRConnectionState.connecting;
 
@@ -51,11 +62,23 @@ class SignalRService {
       _onRoomUserUpdatedStreamController.stream;
 
   HubConnection? hubConnection;
-  Future<void> connect() async {
+  Future<void> connect({String? customUrl}) async {
     try {
       state = SignalRConnectionState.connecting;
       _stateStreamController.add(state);
-      hubConnection = HubConnectionBuilder().withUrl(kUrl).build();
+
+      String url = customUrl?.trim() ?? "";
+      if (url.isEmpty) {
+        url = kUrl;
+      }
+
+      final options = HttpConnectionOptions(
+        requestTimeout: 15000,
+      );
+
+      hubConnection = HubConnectionBuilder()
+          .withUrl(url, options: options)
+          .build();
       hubConnection!.onclose(({Exception? error}) {
         state = SignalRConnectionState.disconnected;
         _stateStreamController.add(state);
@@ -161,16 +184,16 @@ class Resp<T> {
   final T? data;
   Resp(this.isSuccess, this.message, this.data);
 
-  factory Resp.fromJson(Map<String, dynamic> json) {
+  factory Resp.fromJson(Map json) {
     return Resp(
-      json['isSuccess'],
-      json['message'] ?? "",
-      json['data'],
+      json['isSuccess'] == true,
+      json['message']?.toString() ?? "",
+      json['data'] as T?,
     );
   }
 
   factory Resp.fromObject(Object? obj) {
-    if (obj is Map<String, dynamic>) {
+    if (obj is Map) {
       return Resp.fromJson(obj);
     }
     return Resp(false, "unknown", null);
@@ -194,19 +217,19 @@ class RoomUser {
     this.isCreator = false,
   });
 
-  factory RoomUser.fromJson(Map<String, dynamic> json) {
+  factory RoomUser.fromJson(Map json) {
     return RoomUser(
-      connectionId: json['connectionId'],
-      shortId: json['shortId'],
-      platform: json['platform'],
-      version: json['version'],
-      app: json['app'],
-      isCreator: json['isCreator'],
+      connectionId: json['connectionId']?.toString() ?? "",
+      shortId: json['shortId']?.toString() ?? "",
+      platform: json['platform']?.toString() ?? "",
+      version: json['version']?.toString() ?? "",
+      app: json['app']?.toString() ?? "",
+      isCreator: json['isCreator'] == true,
     );
   }
 
   factory RoomUser.fromObject(Object? obj) {
-    if (obj is Map<String, dynamic>) {
+    if (obj is Map) {
       return RoomUser.fromJson(obj);
     }
     return RoomUser(
@@ -218,3 +241,4 @@ class RoomUser {
     );
   }
 }
+

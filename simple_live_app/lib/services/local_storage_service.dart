@@ -180,6 +180,9 @@ class LocalStorageService extends GetxService {
   /// 已经发送过本场开播提醒的主播ID列表（持久化，仍在直播中不再重复提醒）
   static const String kNotifiedLiveAnchorIds = "NotifiedLiveAnchorIds";
 
+  /// 远程数据同步服务地址
+  static const String kSyncServerUrl = "SyncServerUrl";
+
   late Box settingsBox;
   late Box<String> shieldBox;
 
