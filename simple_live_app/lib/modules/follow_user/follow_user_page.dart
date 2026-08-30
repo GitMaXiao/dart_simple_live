@@ -311,6 +311,7 @@ class FollowUserPage extends GetView<FollowUserController> {
                       ),
                     );
                   },
+                  // ignore: deprecated_member_use
                   onReorder: (int oldIndex, int newIndex) {
                     controller.updateTagOrder(oldIndex, newIndex);
                   },
