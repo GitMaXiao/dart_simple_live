@@ -617,6 +617,9 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
 
   /// 读取主播录播与往期回看列表
   Future<void> loadReplays() async {
+    if (site.id == Constant.kDouyu) {
+      return;
+    }
     try {
       loadingReplays.value = true;
       replayPage = 1;

@@ -472,11 +472,14 @@ class LiveRoomPage extends GetView<LiveRoomController> {
   }
 
   Widget buildMessageArea() {
-    int tabLength = 4;
+    int tabLength = 3;
     if (controller.site.id == Constant.kBiliBili) {
       tabLength += 1;
     }
     if (controller.site.id == Constant.kDouyu) {
+      tabLength += 1;
+    }
+    if (controller.site.id != Constant.kDouyu) {
       tabLength += 1;
     }
     return Expanded(
@@ -512,15 +515,16 @@ class LiveRoomPage extends GetView<LiveRoomController> {
                       ),
                     ),
                   ),
-                Tab(
-                  child: Obx(
-                    () => Text(
-                      controller.replays.isNotEmpty
-                          ? "回看(${controller.replays.length})"
-                          : "回看",
+                if (controller.site.id != Constant.kDouyu)
+                  Tab(
+                    child: Obx(
+                      () => Text(
+                        controller.replays.isNotEmpty
+                            ? "回看(${controller.replays.length})"
+                            : "回看",
+                      ),
                     ),
                   ),
-                ),
                 const Tab(
                   text: "关注",
                 ),
@@ -574,7 +578,8 @@ class LiveRoomPage extends GetView<LiveRoomController> {
                     buildSuperChats(),
                   if (controller.site.id == Constant.kDouyu)
                     Builder(builder: (context) => buildHighlights(context)),
-                  Builder(builder: (context) => buildReplays(context)),
+                  if (controller.site.id != Constant.kDouyu)
+                    Builder(builder: (context) => buildReplays(context)),
                   buildFollowList(),
                   buildSettings(),
                 ],
