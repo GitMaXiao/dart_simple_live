@@ -23,3 +23,6 @@ export 'src/model/live_anchor_item.dart';
 export 'src/model/live_play_url.dart';
 export 'src/model/live_highlight_item.dart';
 export 'src/model/live_replay_item.dart';
+export 'src/model/tars/get_cdn_token_ex_req.dart';
+export 'src/model/tars/get_cdn_token_ex_resp.dart';
+export 'src/model/tars/huya_user_id.dart';
