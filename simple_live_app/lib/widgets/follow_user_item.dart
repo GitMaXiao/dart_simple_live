@@ -79,10 +79,7 @@ class FollowUserItem extends StatelessWidget {
       subtitle: Wrap(
         runSpacing: 1.0,
         children: [
-          Image.asset(
-            site.logo,
-            width: 20,
-          ),
+          site.buildLogo(width: 20, height: 20),
           AppStyle.hGap4,
           Text(
             site.name,

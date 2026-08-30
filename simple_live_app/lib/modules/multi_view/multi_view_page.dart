@@ -914,7 +914,7 @@ class MultiViewPage extends GetView<MultiViewController> {
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Image.asset(site.logo, width: 10, height: 10),
+                                    site.buildLogo(width: 10, height: 10),
                                     if (!isNarrow) ...[
                                       const SizedBox(width: 2),
                                       Text(

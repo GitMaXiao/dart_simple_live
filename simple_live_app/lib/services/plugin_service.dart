@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:get/get.dart';
 import 'package:simple_live_app/app/controller/app_settings_controller.dart';
+import 'package:simple_live_app/app/event_bus.dart';
 import 'package:simple_live_app/app/log.dart';
 import 'package:simple_live_app/app/sites.dart';
 import 'package:simple_live_app/services/local_storage_service.dart';
@@ -13,10 +14,13 @@ class PluginService extends GetxService {
   static const String kInstalledPluginsKey = "InstalledPlugins";
   static const String kEnabledPluginsKey = "EnabledPlugins";
 
+  /// 当前已安装的插件清单列表
   final RxList<LivePluginManifest> installedPlugins = <LivePluginManifest>[].obs;
+
+  /// 已启用的插件 ID 列表
   final RxSet<String> enabledPluginIds = <String>{}.obs;
 
-  // 保存插件 ID 到 DynamicLiveSite 实例的映射
+  /// 运行时已激活的 DynamicLiveSite 缓存
   final Map<String, DynamicLiveSite> _activeSites = {};
 
   Future<PluginService> init() async {
@@ -43,47 +47,43 @@ class PluginService extends GetxService {
       [],
     );
 
-    List<LivePluginManifest> list = [];
+    installedPlugins.clear();
     for (var item in pluginJsonList) {
       try {
         if (item is String) {
-          var map = jsonDecode(item) as Map<String, dynamic>;
-          list.add(LivePluginManifest.fromJson(map));
+          installedPlugins.add(LivePluginManifest.fromJson(jsonDecode(item)));
         } else if (item is Map) {
-          list.add(LivePluginManifest.fromJson(Map<String, dynamic>.from(item)));
+          installedPlugins.add(LivePluginManifest.fromJson(Map<String, dynamic>.from(item)));
         }
-      } catch (e) {
-        Log.e("Error parsing plugin storage item: $e", StackTrace.current);
+      } catch (e, s) {
+        Log.e("Failed to decode stored plugin: $e", s);
       }
     }
-
-    installedPlugins.value = list;
   }
 
   Future<void> _saveToStorage() async {
-    final listJson = installedPlugins.map((e) => jsonEncode(e.toJson())).toList();
-    LocalStorageService.instance.setValue(kInstalledPluginsKey, listJson);
-    LocalStorageService.instance.setValue(
-      kEnabledPluginsKey,
-      enabledPluginIds.toList(),
-    );
+    final list = installedPlugins.map((e) => e.toJson()).toList();
+    await LocalStorageService.instance.setValue(kInstalledPluginsKey, list);
+    await LocalStorageService.instance.setValue(kEnabledPluginsKey, enabledPluginIds.toList());
   }
 
-  /// 加载所有已启用的插件
+  /// 启动时激活所有已启用的插件
   Future<void> _loadAllEnabledPlugins() async {
     for (var manifest in installedPlugins) {
       if (enabledPluginIds.contains(manifest.id)) {
         await _activatePlugin(manifest);
       }
     }
+    AppSettingsController.instance.initSiteSort();
+    EventBus.instance.emit(EventBus.kSitesChanged, null);
   }
 
-  /// 激活并注册单个插件到 Sites
+  /// 激活单个插件并注册到 Sites 全局列表
   Future<bool> _activatePlugin(LivePluginManifest manifest) async {
     try {
-      var scriptContent = manifest.scriptContent ?? '';
+      final scriptContent = manifest.scriptContent ?? '';
       if (scriptContent.isEmpty) {
-        Log.w("Plugin ${manifest.id} has empty script content, skipping activation");
+        Log.w("Plugin ${manifest.id} scriptContent is empty");
         return false;
       }
 
@@ -118,25 +118,91 @@ class PluginService extends GetxService {
     Sites.unregisterPluginSite(id);
   }
 
-  /// 安装/导入插件（传入 JSON 或 JS 代码）
+  /// 安装/导入插件（支持 Unified JSON、DSL 规则、纯 JS 脚本或批量备份 JSON）
   Future<bool> installPlugin({
     required String rawContent,
     String? sourceUrl,
   }) async {
     try {
       rawContent = rawContent.trim();
+      if (rawContent.isEmpty) return false;
+
+      // 1. 检查是否为包含多个插件的备份/订阅列表 JSON
+      if (rawContent.startsWith('{') && rawContent.endsWith('}')) {
+        try {
+          final Map<String, dynamic> map = jsonDecode(rawContent);
+          if (map.containsKey('plugins') && map['plugins'] is List) {
+            int successCount = 0;
+            for (var p in (map['plugins'] as List)) {
+              var pJson = jsonEncode(p);
+              var ok = await _installSinglePlugin(rawContent: pJson, sourceUrl: sourceUrl);
+              if (ok) successCount++;
+            }
+            if (successCount > 0) {
+              await _saveToStorage();
+              AppSettingsController.instance.initSiteSort();
+              EventBus.instance.emit(EventBus.kSitesChanged, null);
+              return true;
+            }
+            return false;
+          }
+        } catch (_) {}
+      }
+
+      // 2. 安装单个插件
+      final ok = await _installSinglePlugin(rawContent: rawContent, sourceUrl: sourceUrl);
+      if (ok) {
+        await _saveToStorage();
+        AppSettingsController.instance.initSiteSort();
+        EventBus.instance.emit(EventBus.kSitesChanged, null);
+      }
+      return ok;
+    } catch (e, s) {
+      Log.e("Install plugin failed: $e", s);
+      return false;
+    }
+  }
+
+  Future<bool> _installSinglePlugin({
+    required String rawContent,
+    String? sourceUrl,
+  }) async {
+    try {
       LivePluginManifest manifest;
       String scriptContent = '';
 
       if (rawContent.startsWith('{') && rawContent.endsWith('}')) {
-        // Unified JSON format: contains manifest and scriptContent/content
         final Map<String, dynamic> map = jsonDecode(rawContent);
-        manifest = LivePluginManifest.fromJson(map);
-        scriptContent = map['scriptContent']?.toString() ??
-            map['content']?.toString() ??
-            rawContent;
+
+        bool isDirectDsl = map.containsKey('categories') ||
+            map.containsKey('recommendRooms') ||
+            map.containsKey('roomDetail') ||
+            map.containsKey('playUrls') ||
+            map.containsKey('playQualities');
+
+        if (map['type'] == 'dsl' || (map['type'] == null && isDirectDsl)) {
+          var id = map['id']?.toString() ?? "dsl_${DateTime.now().millisecondsSinceEpoch}";
+          var name = map['name']?.toString() ?? "自定义DSL规则";
+          scriptContent = map['scriptContent']?.toString() ?? rawContent;
+          manifest = LivePluginManifest(
+            id: id,
+            name: name,
+            version: map['version']?.toString() ?? "1.0.0",
+            type: LivePluginType.dsl,
+            author: map['author']?.toString() ?? "User",
+            description: map['description']?.toString() ?? "DSL规则插件",
+            updateUrl: map['updateUrl']?.toString() ?? sourceUrl,
+            scriptContent: scriptContent,
+          );
+        } else {
+          manifest = LivePluginManifest.fromJson(map);
+          scriptContent = map['scriptContent']?.toString() ??
+              map['content']?.toString() ??
+              rawContent;
+          manifest.scriptContent = scriptContent;
+        }
       } else {
-        // Plain JS script or DSL
+        // 纯 JS 脚本文本 (如 SimpleLive.registerSite({...}))
         var idMatch = RegExp(r'''id\s*:\s*["']([^"']+)["']''').firstMatch(rawContent);
         var nameMatch = RegExp(r'''name\s*:\s*["']([^"']+)["']''').firstMatch(rawContent);
         var id = idMatch?.group(1) ?? "custom_plugin_${DateTime.now().millisecondsSinceEpoch}";
@@ -157,24 +223,18 @@ class PluginService extends GetxService {
 
       manifest.scriptContent = scriptContent;
 
-      // 检查是否已有同名插件，若有则替换
+      // 替换或新增
       installedPlugins.removeWhere((e) => e.id == manifest.id);
       installedPlugins.add(manifest);
 
-      // 默认启用新安装的插件
+      // 默认启用
       enabledPluginIds.add(manifest.id);
-      await _saveToStorage();
 
       _deactivatePlugin(manifest.id);
       final success = await _activatePlugin(manifest);
-
-      if (success) {
-        AppSettingsController.instance.initSiteSort();
-      }
-
       return success;
     } catch (e, s) {
-      Log.e("Install plugin failed: $e", s);
+      Log.e("_installSinglePlugin error: $e", s);
       return false;
     }
   }
@@ -210,6 +270,7 @@ class PluginService extends GetxService {
 
     await _saveToStorage();
     AppSettingsController.instance.initSiteSort();
+    EventBus.instance.emit(EventBus.kSitesChanged, null);
   }
 
   /// 检查并更新单个插件
@@ -248,9 +309,10 @@ class PluginService extends GetxService {
   /// 删除已安装的插件
   Future<void> deletePlugin(String id) async {
     enabledPluginIds.remove(id);
-    installedPlugins.removeWhere((e) => e.id == id);
     _deactivatePlugin(id);
+    installedPlugins.removeWhere((e) => e.id == id);
     await _saveToStorage();
     AppSettingsController.instance.initSiteSort();
+    EventBus.instance.emit(EventBus.kSitesChanged, null);
   }
 }

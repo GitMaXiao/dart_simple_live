@@ -428,11 +428,7 @@ class _MultiViewSelectSectionState extends State<MultiViewSelectSection>
                                 color: Theme.of(context).cardColor,
                                 shape: BoxShape.circle,
                               ),
-                              child: Image.asset(
-                                site.logo,
-                                width: 14,
-                                height: 14,
-                              ),
+                              child: site.buildLogo(width: 14, height: 14),
                             ),
                           ),
                       ],
@@ -572,11 +568,7 @@ class _MultiViewSelectSectionState extends State<MultiViewSelectSection>
                               color: Theme.of(context).cardColor,
                               shape: BoxShape.circle,
                             ),
-                            child: Image.asset(
-                              site.logo,
-                              width: 14,
-                              height: 14,
-                            ),
+                            child: site.buildLogo(width: 14, height: 14),
                           ),
                         ),
                     ],
@@ -642,7 +634,7 @@ class _MultiViewSelectSectionState extends State<MultiViewSelectSection>
                         value: site,
                         child: Row(
                           children: [
-                            Image.asset(site.logo, width: 20, height: 20),
+                            site.buildLogo(width: 20, height: 20),
                             AppStyle.hGap8,
                             Text(site.name, style: const TextStyle(fontSize: 14)),
                           ],

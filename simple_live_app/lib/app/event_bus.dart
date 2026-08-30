@@ -7,6 +7,10 @@ class EventBus {
   /// 点击了底部导航
   static const String kBottomNavigationBarClicked =
       "BottomNavigationBarClicked";
+
+  /// 站点列表发生变动（插件增删启停或排序更新）
+  static const String kSitesChanged = "SitesChanged";
+
   static EventBus? _instance;
 
   static EventBus get instance {

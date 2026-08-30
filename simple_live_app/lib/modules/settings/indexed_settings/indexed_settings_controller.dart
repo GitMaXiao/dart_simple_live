@@ -1,5 +1,6 @@
 import 'package:get/get.dart';
 import 'package:simple_live_app/app/controller/app_settings_controller.dart';
+import 'package:simple_live_app/app/event_bus.dart';
 
 class IndexedSettingsController extends GetxController {
   RxList<String> siteSort = RxList<String>();
@@ -19,6 +20,7 @@ class IndexedSettingsController extends GetxController {
     siteSort.insert(newIndex, item);
     // ignore: invalid_use_of_protected_member
     AppSettingsController.instance.setSiteSort(siteSort.value);
+    EventBus.instance.emit(EventBus.kSitesChanged, null);
   }
 
   void updateHomeSort(int oldIndex, int newIndex) {

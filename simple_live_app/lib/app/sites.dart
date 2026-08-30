@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:simple_live_app/app/constant.dart';
 import 'package:simple_live_app/app/controller/app_settings_controller.dart';
 import 'package:simple_live_core/simple_live_core.dart';
@@ -68,4 +69,23 @@ class Site {
     this.isPlugin = false,
     this.manifest,
   });
+
+  Widget buildLogo({double width = 24, double height = 24}) {
+    if (logo.startsWith('http://') || logo.startsWith('https://')) {
+      return Image.network(
+        logo,
+        width: width,
+        height: height,
+        errorBuilder: (context, error, stackTrace) =>
+            Image.asset('assets/images/logo.png', width: width, height: height),
+      );
+    }
+    return Image.asset(
+      logo,
+      width: width,
+      height: height,
+      errorBuilder: (context, error, stackTrace) =>
+          Image.asset('assets/images/logo.png', width: width, height: height),
+    );
+  }
 }

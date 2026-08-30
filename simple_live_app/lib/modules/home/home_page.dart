@@ -10,51 +10,58 @@ class HomePage extends GetView<HomeController> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        titleSpacing: 8,
-        title: TabBar(
-          controller: controller.tabController,
-          labelPadding: AppStyle.edgeInsetsH20,
-          isScrollable: true,
-          indicatorSize: TabBarIndicatorSize.label,
-          tabAlignment: TabAlignment.center,
-          tabs: Sites.supportSites
-              .map(
-                (e) => Tab(
-                  //text: e.name,
+    return GetBuilder<HomeController>(
+      builder: (ctl) {
+        final sites = Sites.supportSites;
+        if (sites.isEmpty) {
+          return Scaffold(
+            appBar: AppBar(title: const Text("Simple Live")),
+            body: const Center(child: Text("暂无可用直播平台")),
+          );
+        }
 
-                  child: Row(
-                    children: [
-                      Image.asset(
-                        e.logo,
-                        width: 24,
+        return Scaffold(
+          appBar: AppBar(
+            titleSpacing: 8,
+            title: TabBar(
+              controller: ctl.tabController,
+              labelPadding: AppStyle.edgeInsetsH20,
+              isScrollable: true,
+              indicatorSize: TabBarIndicatorSize.label,
+              tabAlignment: TabAlignment.center,
+              tabs: sites
+                  .map(
+                    (e) => Tab(
+                      child: Row(
+                        children: [
+                          e.buildLogo(width: 24, height: 24),
+                          AppStyle.hGap8,
+                          Text(e.name),
+                        ],
                       ),
-                      AppStyle.hGap8,
-                      Text(e.name),
-                    ],
-                  ),
-                ),
+                    ),
+                  )
+                  .toList(),
+            ),
+            actions: [
+              IconButton(
+                onPressed: ctl.toSearch,
+                icon: const Icon(Icons.search),
               )
-              .toList(),
-        ),
-        actions: [
-          IconButton(
-            onPressed: controller.toSearch,
-            icon: const Icon(Icons.search),
-          )
-        ],
-      ),
-      body: TabBarView(
-        controller: controller.tabController,
-        children: Sites.supportSites
-            .map(
-              (e) => HomeListView(
-                e.id,
-              ),
-            )
-            .toList(),
-      ),
+            ],
+          ),
+          body: TabBarView(
+            controller: ctl.tabController,
+            children: sites
+                .map(
+                  (e) => HomeListView(
+                    e.id,
+                  ),
+                )
+                .toList(),
+          ),
+        );
+      },
     );
   }
 }

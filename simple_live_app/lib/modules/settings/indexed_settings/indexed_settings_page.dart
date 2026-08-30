@@ -50,7 +50,7 @@ class IndexedSettingsPage extends GetView<IndexedSettingsController> {
           Padding(
             padding: AppStyle.edgeInsetsA12.copyWith(top: 24),
             child: Text(
-              "平台排序 (长按拖动排序，重启后生效)",
+              "平台排序 (长按拖动排序，即时生效)",
               style: Get.textTheme.titleSmall,
             ),
           ),
@@ -61,18 +61,16 @@ class IndexedSettingsPage extends GetView<IndexedSettingsController> {
                 physics: const NeverScrollableScrollPhysics(),
                 // ignore: deprecated_member_use
                 onReorder: controller.updateSiteSort,
-                children: controller.siteSort.map(
+                children: controller.siteSort
+                    .where((key) => Sites.allSites.containsKey(key))
+                    .map(
                   (key) {
                     var e = Sites.allSites[key]!;
                     return ListTile(
                       key: ValueKey(e.id),
                       visualDensity: VisualDensity.compact,
                       title: Text(e.name),
-                      leading: Image.asset(
-                        e.logo,
-                        width: 24,
-                        height: 24,
-                      ),
+                      leading: e.buildLogo(width: 24, height: 24),
                       trailing: const Icon(Icons.drag_handle),
                     );
                   },

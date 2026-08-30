@@ -65,10 +65,7 @@ class HistoryPage extends GetView<HistoryController> {
                   Expanded(
                     child: Row(
                       children: [
-                        Image.asset(
-                          site.logo,
-                          width: 20,
-                        ),
+                        site.buildLogo(width: 20, height: 20),
                         AppStyle.hGap4,
                         Text(
                           site.name,

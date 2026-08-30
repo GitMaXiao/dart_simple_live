@@ -372,10 +372,7 @@ class LiveRoomPage extends GetView<LiveRoomController> {
                   AppStyle.vGap4,
                   Row(
                     children: [
-                      Image.asset(
-                        controller.site.logo,
-                        width: 20,
-                      ),
+                      controller.site.buildLogo(width: 20, height: 20),
                       AppStyle.hGap4,
                       Text(
                         controller.site.name,
