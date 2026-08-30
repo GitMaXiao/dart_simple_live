@@ -15,7 +15,25 @@ class MultiViewItemController {
 
   MultiViewItemController({
     required this.index,
-  });
+  }) {
+    _initPlayer();
+  }
+
+  Future<void> _initPlayer() async {
+    try {
+      if (player.platform is NativePlayer) {
+        var pp = player.platform as NativePlayer;
+        await pp.setProperty('force-seekable', 'no');
+        int bufferBytes =
+            AppSettingsController.instance.playerBufferSize.value * 1024 * 1024;
+        await pp.setProperty('demuxer-max-bytes', bufferBytes.toString());
+        await pp.setProperty('demuxer-max-back-bytes', '0');
+        await pp.setProperty('demuxer-readahead-secs', '10');
+      }
+    } catch (e) {
+      Log.e("MultiView-TV item $index 初始化播放参数失败: $e", StackTrace.current);
+    }
+  }
 
   Site? site;
   String? roomId;
@@ -34,6 +52,8 @@ class MultiViewItemController {
   late final Player player = Player(
     configuration: PlayerConfiguration(
       title: "MultiView-TV-$index",
+      bufferSize:
+          AppSettingsController.instance.playerBufferSize.value * 1024 * 1024,
       logLevel: MPVLogLevel.error,
     ),
   );

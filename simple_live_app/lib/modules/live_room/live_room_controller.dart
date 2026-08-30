@@ -213,8 +213,8 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
   /// 接收到WebSocket信息
   void onWSMessage(LiveMessage msg) {
     if (msg.type == LiveMessageType.chat) {
-      if (messages.length > 200 && !disableAutoScroll.value) {
-        messages.removeAt(0);
+      if (messages.length >= 200) {
+        messages.removeRange(0, messages.length - 199);
       }
 
       // 关键词屏蔽检查

@@ -63,9 +63,11 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
   var isBackground = false;
 
   var datetime = "00:00".obs;
+  Timer? _datetimeTimer;
 
   void initTimer() {
-    Timer.periodic(const Duration(seconds: 1), (timer) {
+    _datetimeTimer?.cancel();
+    _datetimeTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       var now = DateTime.now();
       datetime.value =
           "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
@@ -475,6 +477,8 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
 
   @override
   void onClose() {
+    _datetimeTimer?.cancel();
+    doubleClickTimer?.cancel();
     liveDanmaku.stop();
 
     danmakuController = null;

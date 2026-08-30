@@ -18,21 +18,30 @@ mixin PlayerMixin {
 
   /// 播放器实例
   late final player = Player(
-    configuration: const PlayerConfiguration(
+    configuration: PlayerConfiguration(
       title: "Simple Live Player",
-      // bufferSize:
-      //     // media-kit #549
-      //     AppSettingsController.instance.playerBufferSize.value * 1024 * 1024,
+      bufferSize:
+          AppSettingsController.instance.playerBufferSize.value * 1024 * 1024,
     ),
   );
 
-  /// 初始化播放器并设置 ao 参数
+  /// 初始化播放器并设置 ao 参数及直播流缓存限制
   Future<void> initializePlayer() async {
-    var pp = player.platform as NativePlayer;
-
-    // media_kit 仓库更新导致的问题，临时解决办法
-    if (Platform.isAndroid) {
-      await pp.setProperty('force-seekable', 'yes');
+    // 直播流内存与缓存优化：
+    // 1. 禁止强制可拖拽(force-seekable)，防止mpv将实时直播流当作可回放视频而无限堆积内存缓存导致运行10分钟左右OOM闪退/卡死
+    // 2. 限制demuxer最大缓存和回退缓存(demuxer-max-back-bytes=0)，及时释放已播放帧
+    if (player.platform is NativePlayer) {
+      var pp = player.platform as NativePlayer;
+      try {
+        await pp.setProperty('force-seekable', 'no');
+        int bufferBytes =
+            AppSettingsController.instance.playerBufferSize.value * 1024 * 1024;
+        await pp.setProperty('demuxer-max-bytes', bufferBytes.toString());
+        await pp.setProperty('demuxer-max-back-bytes', '0');
+        await pp.setProperty('demuxer-readahead-secs', '10');
+      } catch (e) {
+        Log.e("初始化播放器缓存参数失败: $e", StackTrace.current);
+      }
     }
   }
 

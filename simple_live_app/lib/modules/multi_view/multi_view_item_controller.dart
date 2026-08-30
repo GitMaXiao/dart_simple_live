@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:canvas_danmaku/canvas_danmaku.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -32,9 +31,12 @@ class MultiViewItemController {
             AppSettingsController.instance.audioOutputDriver.value,
           );
         }
-        if (Platform.isAndroid) {
-          await pp.setProperty('force-seekable', 'yes');
-        }
+        await pp.setProperty('force-seekable', 'no');
+        int bufferBytes =
+            AppSettingsController.instance.playerBufferSize.value * 1024 * 1024;
+        await pp.setProperty('demuxer-max-bytes', bufferBytes.toString());
+        await pp.setProperty('demuxer-max-back-bytes', '0');
+        await pp.setProperty('demuxer-readahead-secs', '10');
       }
     } catch (e) {
       Log.e("MultiView item $index 初始化播放参数失败: $e", StackTrace.current);
@@ -58,6 +60,8 @@ class MultiViewItemController {
   late final Player player = Player(
     configuration: PlayerConfiguration(
       title: "MultiView-$index",
+      bufferSize:
+          AppSettingsController.instance.playerBufferSize.value * 1024 * 1024,
       logLevel: MPVLogLevel.error,
     ),
   );
