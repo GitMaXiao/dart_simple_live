@@ -393,14 +393,89 @@ class DouyuSite implements LiveSite {
     required String roomId,
   }) async {
     try {
-      // 1. 获取房间主播信息
+      List<LiveHighlightItem> highlights = [];
+
+      // 1. 优先调用斗鱼官方 AI 直播看点接口 (getHighlightDetail)
+      try {
+        var aiResult = await HttpClient.instance.postJson(
+          "https://www.douyu.com/wgapi/vodnc/center/ailive/getHighlightDetail",
+          data: {
+            "rid": int.tryParse(roomId) ?? roomId,
+          },
+          header: {
+            'referer': 'https://www.douyu.com/pages/ai-live-summary?rid=$roomId',
+            'user-agent':
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          },
+        );
+
+        if (aiResult is Map &&
+            aiResult["error"] == 0 &&
+            aiResult["data"] != null &&
+            aiResult["data"]["highlightList"] is List) {
+          var list = aiResult["data"]["highlightList"] as List;
+          for (var item in list) {
+            if (item is Map) {
+              var hid = item["globalHighlightId"]?.toString() ??
+                  item["highlightId"]?.toString() ??
+                  "";
+              if (hid.isEmpty) continue;
+
+              int start = item["startTime"] ?? 0;
+              int end = item["endTime"] ?? 0;
+              int durationSec = end > start ? end - start : 0;
+              String durationStr = durationSec > 0
+                  ? "${(durationSec ~/ 60).toString().padLeft(2, '0')}:${(durationSec % 60).toString().padLeft(2, '0')}"
+                  : "";
+
+              String timeStr = "";
+              if (start > 0) {
+                var dt = DateTime.fromMillisecondsSinceEpoch(start * 1000);
+                timeStr =
+                    "${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
+              }
+
+              var excerpts = item["excerpts"] as List? ?? [];
+              var danmuCount = excerpts.length.toString();
+
+              highlights.add(
+                LiveHighlightItem(
+                  id: hid,
+                  title: HtmlUnescape().convert(
+                    item["title"]?.toString() ??
+                        item["summary"]?.toString() ??
+                        "",
+                  ),
+                  cover: item["cover"]?.toString() ?? "",
+                  duration: durationStr,
+                  createTime: timeStr,
+                  author: item["dnick"]?.toString() ?? "",
+                  url: item["schemeUrl"]?.toString() ??
+                      "https://www.douyu.com/$roomId",
+                  tag: "AI看点",
+                  viewCount: (item["heat"] ?? 0).toString(),
+                  danmuCount: danmuCount,
+                  description: item["describe"]?.toString() ??
+                      item["summary"]?.toString() ??
+                      "",
+                ),
+              );
+            }
+          }
+        }
+      } catch (e) {
+        print("请求斗鱼AI看点接口异常: $e");
+      }
+
+      if (highlights.isNotEmpty) {
+        return highlights;
+      }
+
+      // 2. 降级方案：如果该直播间没有AI看点，搜索官方视频与精彩切片
       var roomInfo = await _getRoomInfo(roomId);
       var anchorName = roomInfo["owner_name"]?.toString() ?? "";
       var roomName = roomInfo["room_name"]?.toString() ?? "";
 
-      List<LiveHighlightItem> highlights = [];
-
-      // 2. 如果存在主播名称或房间名称，搜索官方看点与精彩切片
       var searchKey = anchorName.isNotEmpty ? anchorName : roomName;
       if (searchKey.isNotEmpty) {
         var searchResult = await HttpClient.instance.getJson(
@@ -422,7 +497,9 @@ class DouyuSite implements LiveSite {
           if (relateVideo is List) {
             for (var item in relateVideo) {
               if (item is Map) {
-                var hashId = item["hashId"]?.toString() ?? item["vid"]?.toString() ?? "";
+                var hashId = item["hashId"]?.toString() ??
+                    item["vid"]?.toString() ??
+                    "";
                 if (hashId.isEmpty) continue;
                 var title = item["title"]?.toString() ?? "";
                 var isAi = item["is_ai"] == 1 ||
@@ -440,7 +517,8 @@ class DouyuSite implements LiveSite {
                     duration: item["duration"]?.toString() ?? "",
                     createTime: item["publishTime"]?.toString() ?? "",
                     author: item["owner"]?.toString() ?? anchorName,
-                    url: item["url"]?.toString() ?? "https://v.douyu.com/show/$hashId",
+                    url: item["url"]?.toString() ??
+                        "https://v.douyu.com/show/$hashId",
                     tag: isAi ? "AI看点" : "精彩时刻",
                     viewCount: item["viewCount"]?.toString() ?? "0",
                     danmuCount: item["danmu"]?.toString() ?? "0",

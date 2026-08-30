@@ -824,7 +824,23 @@ class LiveRoomPage extends GetView<LiveRoomController> {
                               ),
                             ],
                           ),
-                          AppStyle.vGap8,
+                          if (item.description.isNotEmpty) ...[
+                            AppStyle.vGap4,
+                            Text(
+                              item.description,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.color
+                                    ?.withAlpha(180),
+                              ),
+                            ),
+                          ],
+                          AppStyle.vGap4,
                           // 作者与发布时间
                           Row(
                             children: [
