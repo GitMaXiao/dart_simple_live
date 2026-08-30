@@ -27,7 +27,6 @@ import 'package:simple_live_app/widgets/superchat_card.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:simple_live_core/simple_live_core.dart';
-import 'package:url_launcher/url_launcher_string.dart';
 
 class LiveRoomPage extends GetView<LiveRoomController> {
   const LiveRoomPage({Key? key}) : super(key: key);
@@ -734,12 +733,6 @@ class LiveRoomPage extends GetView<LiveRoomController> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
               child: HighlightCardWidget(
                 item: item,
-                onTap: () {
-                  if (item.url.isNotEmpty) {
-                    launchUrlString(item.url,
-                        mode: LaunchMode.externalApplication);
-                  }
-                },
               ),
             );
           },
@@ -1316,12 +1309,10 @@ class LiveRoomPage extends GetView<LiveRoomController> {
 
 class HighlightCardWidget extends StatefulWidget {
   final LiveHighlightItem item;
-  final VoidCallback? onTap;
 
   const HighlightCardWidget({
     Key? key,
     required this.item,
-    this.onTap,
   }) : super(key: key);
 
   @override
@@ -1361,19 +1352,16 @@ class _HighlightCardWidgetState extends State<HighlightCardWidget> {
         ? widget.item.excerpts
         : widget.item.excerpts.take(3).toList();
 
-    return InkWell(
-      borderRadius: BorderRadius.circular(12),
-      onTap: widget.onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: cardBg,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isDark
-                ? Colors.white.withAlpha(15)
-                : Colors.black.withAlpha(10),
-          ),
+    return Container(
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withAlpha(15)
+              : Colors.black.withAlpha(10),
         ),
+      ),
         padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1590,8 +1578,7 @@ class _HighlightCardWidgetState extends State<HighlightCardWidget> {
             ],
           ],
         ),
-      ),
-    );
+      );
   }
 
   Widget _buildActionBtn({
