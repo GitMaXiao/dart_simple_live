@@ -103,3 +103,4 @@ jobs:
           prerelease: ${{ contains(github.ref, 'beta') || contains(github.ref, 'alpha') || contains(github.ref, 'dev') }}
           token: ${{ secrets.GITHUB_TOKEN }}
           files: simple_live_app/build/dist/*.zip
+
