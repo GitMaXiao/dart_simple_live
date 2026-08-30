@@ -1,5 +1,6 @@
 import 'package:canvas_danmaku/canvas_danmaku.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:media_kit_video/media_kit_video.dart';
@@ -13,6 +14,47 @@ import 'package:simple_live_app/widgets/net_image.dart';
 
 class MultiViewPage extends GetView<MultiViewController> {
   const MultiViewPage({super.key});
+
+  void _handleKeyEvent(KeyEvent event) {
+    if (event is! KeyDownEvent) return;
+    final logicalKey = event.logicalKey;
+
+    if (logicalKey == LogicalKeyboardKey.digit1 ||
+        logicalKey == LogicalKeyboardKey.numpad1) {
+      controller.setFocus(0);
+      SmartDialog.showToast("已切换到【视角 1】");
+    } else if (logicalKey == LogicalKeyboardKey.digit2 ||
+        logicalKey == LogicalKeyboardKey.numpad2) {
+      if (controller.getVisibleCount() >= 2) {
+        controller.setFocus(1);
+        SmartDialog.showToast("已切换到【视角 2】");
+      }
+    } else if (logicalKey == LogicalKeyboardKey.digit3 ||
+        logicalKey == LogicalKeyboardKey.numpad3) {
+      if (controller.getVisibleCount() >= 3) {
+        controller.setFocus(2);
+        SmartDialog.showToast("已切换到【视角 3】");
+      }
+    } else if (logicalKey == LogicalKeyboardKey.digit4 ||
+        logicalKey == LogicalKeyboardKey.numpad4) {
+      if (controller.getVisibleCount() >= 4) {
+        controller.setFocus(3);
+        SmartDialog.showToast("已切换到【视角 4】");
+      }
+    } else if (logicalKey == LogicalKeyboardKey.f11 ||
+        logicalKey == LogicalKeyboardKey.keyF) {
+      controller.toggleFullScreen();
+    } else if (logicalKey == LogicalKeyboardKey.keyM) {
+      controller.toggleAudioMode();
+    } else if (logicalKey == LogicalKeyboardKey.escape) {
+      if (controller.isMaximized.value) {
+        controller.isMaximized.value = false;
+        SmartDialog.showToast("已退出视角最大化");
+      } else if (controller.isFullScreen.value) {
+        controller.toggleFullScreen();
+      }
+    }
+  }
 
   String _getDanmakuTooltip(MultiViewDanmakuMode mode) {
     switch (mode) {
@@ -40,14 +82,20 @@ class MultiViewPage extends GetView<MultiViewController> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF0A0A0E),
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(kToolbarHeight),
-        child: Obx(
-          () => controller.isFullScreen.value
-              ? const SizedBox.shrink()
-              : AppBar(
+    return Focus(
+      autofocus: true,
+      onKeyEvent: (node, event) {
+        _handleKeyEvent(event);
+        return KeyEventResult.ignored;
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFF0A0A0E),
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(kToolbarHeight),
+          child: Obx(
+            () => controller.isFullScreen.value
+                ? const SizedBox.shrink()
+                : AppBar(
                   backgroundColor: const Color(0xFF101018),
                   foregroundColor: Colors.white,
                   elevation: 0,
@@ -210,8 +258,9 @@ class MultiViewPage extends GetView<MultiViewController> {
           );
         }
       }),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildGlobalDanmakuLayer() {
     return Positioned.fill(
@@ -605,14 +654,19 @@ class MultiViewPage extends GetView<MultiViewController> {
   }
 
   Widget _buildLayout(BuildContext context) {
-    switch (controller.layout.value) {
-      case MultiViewLayout.two:
-        return _buildTwoLayout(context);
-      case MultiViewLayout.three:
-        return _buildThreeLayout(context);
-      case MultiViewLayout.four:
-        return _buildFourLayout(context);
-    }
+    return Obx(() {
+      if (controller.isMaximized.value) {
+        return _buildItemView(context, controller.maximizedIndex.value);
+      }
+      switch (controller.layout.value) {
+        case MultiViewLayout.two:
+          return _buildTwoLayout(context);
+        case MultiViewLayout.three:
+          return _buildThreeLayout(context);
+        case MultiViewLayout.four:
+          return _buildFourLayout(context);
+      }
+    });
   }
 
   Widget _buildTwoLayout(BuildContext context) {
@@ -684,6 +738,9 @@ class MultiViewPage extends GetView<MultiViewController> {
               if (controller.isFullScreen.value) {
                 controller.toggleControls();
               }
+            },
+            onDoubleTap: () {
+              controller.toggleMaximizeItem(index);
             },
             child: Container(
               margin: const EdgeInsets.all(2.0),

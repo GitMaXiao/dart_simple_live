@@ -1,0 +1,105 @@
+name: Build Windows App
+
+on:
+  workflow_dispatch:
+    inputs:
+      create_release:
+        description: '是否发布到 GitHub Release'
+        required: true
+        type: boolean
+        default: false
+  push:
+    branches:
+      - master
+      - main
+      - dev
+    tags:
+      - 'v*'
+      - 'dev_v*'
+      - 'windows_v*'
+      - 'release_*'
+  pull_request:
+    branches:
+      - master
+      - main
+
+jobs:
+  build-windows:
+    name: Build Windows Release (x64)
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 配置 Flutter 环境
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: 启用 Windows 桌面端支持
+        run: flutter config --enable-windows-desktop
+
+      - name: 恢复项目依赖
+        run: |
+          cd simple_live_app
+          flutter pub get
+
+      - name: 代码质量与语法检查
+        run: |
+          cd simple_live_app
+          flutter analyze
+
+      - name: 构建 Windows Release
+        run: |
+          cd simple_live_app
+          flutter build windows --release
+
+      - name: 提取应用版本号
+        id: get_version
+        shell: pwsh
+        run: |
+          $pubspec = Get-Content -Path "simple_live_app/pubspec.yaml" -Raw
+          if ($pubspec -match "version:\s*([^\r\n]+)") {
+              $version = $matches[1].Trim()
+          } else {
+              $version = "1.0.0"
+          }
+          $tag = if ($env:GITHUB_REF -like "refs/tags/*") { $env:GITHUB_REF.Replace("refs/tags/", "") } else { "v$version" }
+          Write-Host "Version: $version, Tag: $tag"
+          "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "TAG_NAME=$tag" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: 打包绿色版 ZIP
+        shell: pwsh
+        run: |
+          $releaseDir = "simple_live_app/build/windows/x64/runner/Release"
+          $outputDir = "simple_live_app/build/dist"
+          if (!(Test-Path $outputDir)) {
+              New-Item -ItemType Directory -Force -Path $outputDir
+          }
+          $zipName = "SimpleLive-Windows-x64-$($env:VERSION).zip"
+          $zipPath = Join-Path $outputDir $zipName
+          Compress-Archive -Path "$releaseDir/*" -DestinationPath $zipPath -Force
+          Write-Host "Generated ZIP at: $zipPath"
+          "ZIP_PATH=$zipPath" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: 上传构建产物 (Artifacts)
+        uses: actions/upload-artifact@v4
+        with:
+          name: SimpleLive-Windows-x64
+          path: simple_live_app/build/dist/*.zip
+
+      - name: 发布至 GitHub Release
+        if: startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.create_release)
+        uses: softprops/action-gh-release@v1
+        with:
+          name: "Simple Live ${{ env.TAG_NAME }}"
+          tag_name: ${{ env.TAG_NAME }}
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref, 'beta') || contains(github.ref, 'alpha') || contains(github.ref, 'dev') }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          files: simple_live_app/build/dist/*.zip

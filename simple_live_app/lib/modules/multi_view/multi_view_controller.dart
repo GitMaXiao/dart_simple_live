@@ -29,6 +29,8 @@ class MultiViewController extends GetxController {
   final RxBool isFullScreen = false.obs;
   final RxBool showFullScreenControls = true.obs; // 全屏悬浮控制栏显示状态
   final Rx<MultiViewDanmakuMode> danmakuMode = MultiViewDanmakuMode.primary.obs; // 默认开启主视角弹幕
+  final RxBool isMaximized = false.obs; // 是否最大化单视角
+  final RxInt maximizedIndex = 0.obs; // 最大化的视角序号
 
   Timer? _hideControlsTimer;
 
@@ -96,6 +98,7 @@ class MultiViewController extends GetxController {
 
   /// 切换分屏布局模式
   void setLayout(MultiViewLayout newLayout) {
+    isMaximized.value = false;
     layout.value = newLayout;
     // 如果焦点超出了当前可见分屏数，重置为0
     int maxVisible = getVisibleCount();
@@ -104,7 +107,22 @@ class MultiViewController extends GetxController {
     }
   }
 
+  /// 双击最大化或还原单视角
+  void toggleMaximizeItem(int index) {
+    if (index < 0 || index >= items.length) return;
+    if (isMaximized.value && maximizedIndex.value == index) {
+      isMaximized.value = false;
+      SmartDialog.showToast("已恢复多分屏模式");
+    } else {
+      isMaximized.value = true;
+      maximizedIndex.value = index;
+      setFocus(index);
+      SmartDialog.showToast("已最大化【视角 ${index + 1}】(双击可恢复)");
+    }
+  }
+
   void cycleLayout() {
+    isMaximized.value = false;
     if (layout.value == MultiViewLayout.two) {
       setLayout(MultiViewLayout.three);
     } else if (layout.value == MultiViewLayout.three) {

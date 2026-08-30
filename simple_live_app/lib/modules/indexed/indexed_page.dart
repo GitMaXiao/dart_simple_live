@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:remixicon/remixicon.dart';
 import 'package:simple_live_app/app/app_style.dart';
+import 'package:simple_live_app/routes/route_path.dart';
 
 import 'indexed_controller.dart';
 
@@ -30,6 +32,39 @@ class IndexedPage extends GetView<IndexedController> {
                           ),
                         )
                         .toList(),
+                    trailing: Expanded(
+                      child: Align(
+                        alignment: Alignment.bottomCenter,
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: Tooltip(
+                            message: "多屏同播 / 多视角",
+                            child: IconButton(
+                              icon: Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [
+                                      Colors.blueAccent,
+                                      Colors.cyanAccent
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Icon(
+                                  Remix.tv_2_line,
+                                  color: Colors.black,
+                                  size: 18,
+                                ),
+                              ),
+                              onPressed: () {
+                                Get.toNamed(RoutePath.kMultiView);
+                              },
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),
