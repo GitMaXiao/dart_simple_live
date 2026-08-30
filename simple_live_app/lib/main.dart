@@ -30,6 +30,7 @@ import 'package:simple_live_app/services/follow_service.dart';
 import 'package:simple_live_app/services/live_audio_service.dart';
 import 'package:simple_live_app/services/local_storage_service.dart';
 import 'package:simple_live_app/services/notification_service.dart';
+import 'package:simple_live_app/services/plugin_service.dart';
 import 'package:simple_live_app/services/sync_service.dart';
 import 'package:simple_live_app/widgets/status/app_loadding_widget.dart';
 import 'package:simple_live_core/simple_live_core.dart';
@@ -131,6 +132,9 @@ Future initServices() async {
   await Get.put(DBService()).init();
   //初始化设置控制器
   Get.put(AppSettingsController());
+
+  // 初始化动态插件服务
+  await Get.put(PluginService()).init();
 
   Get.put(BiliBiliAccountService());
 

@@ -7,6 +7,8 @@ import 'package:simple_live_app/app/app_style.dart';
 import 'package:simple_live_app/app/controller/app_settings_controller.dart';
 import 'package:simple_live_app/app/utils.dart';
 import 'package:simple_live_app/modules/settings/other/other_settings_controller.dart';
+import 'package:simple_live_app/routes/route_path.dart';
+import 'package:simple_live_app/widgets/settings/settings_action.dart';
 import 'package:simple_live_app/widgets/settings/settings_card.dart';
 import 'package:simple_live_app/widgets/settings/settings_menu.dart';
 import 'package:simple_live_app/widgets/settings/settings_switch.dart';
@@ -52,6 +54,23 @@ class OtherSettingsPage extends GetView<OtherSettingsController> {
                   ),
                 ],
               ),
+            ),
+          ),
+          Padding(
+            padding: AppStyle.edgeInsetsA12.copyWith(top: 24),
+            child: Text(
+              "扩展与规则",
+              style: Get.textTheme.titleSmall,
+            ),
+          ),
+          SettingsCard(
+            child: SettingsAction(
+              title: "插件与规则引擎",
+              value: "在线订阅与脚本",
+              leading: const Icon(Remix.puzzle_line),
+              onTap: () {
+                Get.toNamed(RoutePath.kPluginManager);
+              },
             ),
           ),
           Padding(

@@ -1,0 +1,12 @@
+{
+  "id": "site_sample_dsl",
+  "name": "示例平台(DSL)",
+  "version": "1.0.0",
+  "type": "dsl",
+  "author": "SimpleLive",
+  "description": "基于 JSON 声明式规则的示例直播平台插件",
+  "icon": "assets/images/logo.png",
+  "entry": "rules.json",
+  "scriptContent": "{\n  \"playQualities\": [\n    { \"quality\": \"超清 1080P\", \"data\": \"1080p\", \"sort\": 1 },\n    { \"quality\": \"高清 720P\", \"data\": \"720p\", \"sort\": 2 }\n  ],\n  \"playUrls\": {\n    \"url\": \"https://example.com/api/live/stream?roomId={{roomId}}&quality={{qualityData}}\",\n    \"headers\": {\n      \"User-Agent\": \"Mozilla/5.0 SimpleLive/1.0\",\n      \"Referer\": \"https://example.com\"\n    },\n    \"jsonPath\": {\n      \"urls\": \"data.urls\"\n    }\n  }\n}"
+}
+

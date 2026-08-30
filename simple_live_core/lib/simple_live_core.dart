@@ -26,3 +26,12 @@ export 'src/model/live_replay_item.dart';
 export 'src/model/tars/get_cdn_token_ex_req.dart';
 export 'src/model/tars/get_cdn_token_ex_resp.dart';
 export 'src/model/tars/huya_user_id.dart';
+
+// 动态插件与规则引擎
+export 'src/plugins/live_plugin_manifest.dart';
+export 'src/plugins/plugin_runtime_engine.dart';
+export 'src/plugins/dsl_plugin_engine.dart';
+export 'src/plugins/js_plugin_engine.dart';
+export 'src/plugins/dynamic_live_site.dart';
+export 'src/plugins/dynamic_live_danmaku.dart';
+export 'src/plugins/plugin_manager_core.dart';

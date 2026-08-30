@@ -1,0 +1,28 @@
+{
+  "name": "Simple Live 官方插件源",
+  "version": "1.0.0",
+  "updatedAt": "2026-08-30",
+  "plugins": [
+    {
+      "id": "site_kuaishou",
+      "name": "快手直播",
+      "version": "1.0.0",
+      "type": "js",
+      "author": "SimpleLive",
+      "description": "快手直播动态解析插件（基于 QuickJS 沙箱）",
+      "icon": "https://raw.githubusercontent.com/xiaoyaocz/dart_simple_live/master/assets/images/logo.png",
+      "downloadUrl": "https://raw.githubusercontent.com/xiaoyaocz/dart_simple_live/master/assets/plugins/kuaishou.plugin.json"
+    },
+    {
+      "id": "site_sample_dsl",
+      "name": "示例平台(DSL)",
+      "version": "1.0.0",
+      "type": "dsl",
+      "author": "SimpleLive",
+      "description": "基于 JSON 声明式规则的示例直播平台插件",
+      "icon": "https://raw.githubusercontent.com/xiaoyaocz/dart_simple_live/master/assets/images/logo.png",
+      "downloadUrl": "https://raw.githubusercontent.com/xiaoyaocz/dart_simple_live/master/assets/plugins/sample_dsl.plugin.json"
+    }
+  ]
+}
+

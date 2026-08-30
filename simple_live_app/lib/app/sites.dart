@@ -3,7 +3,7 @@ import 'package:simple_live_app/app/controller/app_settings_controller.dart';
 import 'package:simple_live_core/simple_live_core.dart';
 
 class Sites {
-  static final Map<String, Site> allSites = {
+  static final Map<String, Site> _builtinSites = {
     Constant.kBiliBili: Site(
       id: Constant.kBiliBili,
       logo: "assets/images/bilibili_2.png",
@@ -30,9 +30,24 @@ class Sites {
     ),
   };
 
+  static final Map<String, Site> allSites = Map.from(_builtinSites);
+
+  static bool isBuiltinSite(String id) => _builtinSites.containsKey(id);
+
+  static void registerPluginSite(Site site) {
+    allSites[site.id] = site;
+  }
+
+  static void unregisterPluginSite(String id) {
+    if (!isBuiltinSite(id)) {
+      allSites.remove(id);
+    }
+  }
+
   static List<Site> get supportSites {
     return AppSettingsController.instance.siteSort
-        .map((key) => allSites[key]!)
+        .map((key) => allSites[key])
+        .whereType<Site>()
         .toList();
   }
 }
@@ -42,10 +57,15 @@ class Site {
   final String name;
   final String logo;
   final LiveSite liveSite;
+  final bool isPlugin;
+  final LivePluginManifest? manifest;
+
   Site({
     required this.id,
     required this.liveSite,
     required this.logo,
     required this.name,
+    this.isPlugin = false,
+    this.manifest,
   });
 }

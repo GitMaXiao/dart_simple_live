@@ -45,6 +45,8 @@ import 'package:simple_live_app/modules/settings/indexed_settings/indexed_settin
 import 'package:simple_live_app/modules/settings/other/other_settings_controller.dart';
 import 'package:simple_live_app/modules/settings/other/other_settings_page.dart';
 import 'package:simple_live_app/modules/settings/play_settings_page.dart';
+import 'package:simple_live_app/modules/settings/plugins/plugin_manager_controller.dart';
+import 'package:simple_live_app/modules/settings/plugins/plugin_manager_page.dart';
 
 import '../modules/indexed/indexed_page.dart';
 import 'route_path.dart';
@@ -256,6 +258,14 @@ class AppPages {
       page: () => const MultiViewPage(),
       bindings: [
         BindingsBuilder.put(() => MultiViewController()),
+      ],
+    ),
+    //插件与解析规则管理
+    GetPage(
+      name: RoutePath.kPluginManager,
+      page: () => const PluginManagerPage(),
+      bindings: [
+        BindingsBuilder.put(() => PluginManagerController()),
       ],
     ),
   ];

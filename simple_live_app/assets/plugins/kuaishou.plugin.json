@@ -1,0 +1,12 @@
+{
+  "id": "site_kuaishou",
+  "name": "快手直播",
+  "version": "1.0.0",
+  "type": "js",
+  "author": "SimpleLive",
+  "description": "快手直播动态解析插件（基于 QuickJS 沙箱）",
+  "icon": "assets/images/logo.png",
+  "entry": "kuaishou.js",
+  "scriptContent": "SimpleLive.registerSite({\n  id: 'site_kuaishou',\n  name: '快手直播',\n\n  getCategories: function() {\n    return [\n      {\n        id: 'game',\n        name: '游戏专区',\n        children: [\n          { id: 'lol', name: '英雄联盟', pic: '' },\n          { id: 'honor', name: '王者荣耀', pic: '' },\n          { id: 'pubg', name: '绝地求生', pic: '' }\n        ]\n      },\n      {\n        id: 'entertainment',\n        name: '娱乐天地',\n        children: [\n          { id: 'sing', name: '音乐电台', pic: '' },\n          { id: 'dance', name: '舞蹈', pic: '' },\n          { id: 'outdoor', name: '户外生活', pic: '' }\n        ]\n      }\n    ];\n  },\n\n  getRecommendRooms: function(page) {\n    return {\n      hasMore: false,\n      items: []\n    };\n  },\n\n  getCategoryRooms: function(category, page) {\n    return {\n      hasMore: false,\n      items: []\n    };\n  },\n\n  searchRooms: function(keyword, page) {\n    return {\n      hasMore: false,\n      items: []\n    };\n  },\n\n  searchAnchors: function(keyword, page) {\n    return {\n      hasMore: false,\n      items: []\n    };\n  },\n\n  getRoomDetail: function(roomId) {\n    return {\n      roomId: roomId,\n      title: '快手直播间 ' + roomId,\n      cover: '',\n      userName: '快手主播',\n      userAvatar: '',\n      online: 1000,\n      status: true,\n      url: 'https://live.kuaishou.com/u/' + roomId\n    };\n  },\n\n  getPlayQualities: function(detail) {\n    return [\n      { quality: '超清 1080P', data: '1080p', sort: 1 },\n      { quality: '高清 720P', data: '720p', sort: 2 },\n      { quality: '标清 540P', data: '540p', sort: 3 }\n    ];\n  },\n\n  getPlayUrls: function(detail, quality) {\n    return {\n      urls: [\n        'https://txmov2.a.yximgs.com/bs2/livestream/' + detail.roomId + '_' + quality.data + '.flv',\n        'https://txmov2.a.yximgs.com/bs2/livestream/' + detail.roomId + '_' + quality.data + '.m3u8'\n      ],\n      headers: {\n        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',\n        'Referer': 'https://live.kuaishou.com/'\n      }\n    };\n  },\n\n  getLiveStatus: function(roomId) {\n    return true;\n  }\n});"
+}
+

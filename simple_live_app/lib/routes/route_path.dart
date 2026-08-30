@@ -81,6 +81,9 @@ class RoutePath {
   /// 多屏同播 / 多视角
   static const kMultiView = "/multi_view";
 
+  /// 插件与规则引擎设置
+  static const kPluginManager = "/settings/plugins";
+
   /// 测试页面
   static const kTest = "/test";
 }
