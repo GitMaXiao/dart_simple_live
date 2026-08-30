@@ -135,6 +135,21 @@ class PlaySettingsPage extends GetView<AppSettingsController> {
                 ),
                 AppStyle.divider,
                 Obx(
+                  () => SettingsMenu<int>(
+                    title: "屏幕常亮",
+                    value: controller.wakeLockMode.value,
+                    valueMap: const {
+                      0: "关闭",
+                      1: "仅全屏",
+                      2: "始终常亮",
+                    },
+                    onChanged: (e) {
+                      controller.setWakeLockMode(e);
+                    },
+                  ),
+                ),
+                AppStyle.divider,
+                Obx(
                   () => Visibility(
                     visible: Platform.isAndroid,
                     child: SettingsSwitch(

@@ -83,6 +83,9 @@ class AppSettingsController extends GetxController {
     autoFullScreen.value = LocalStorageService.instance
         .getValue(LocalStorageService.kAutoFullScreen, false);
 
+    wakeLockMode.value = LocalStorageService.instance
+        .getValue(LocalStorageService.kWakeLockMode, 2);
+
     // ignore: invalid_use_of_protected_member
     shieldList.value = LocalStorageService.instance.shieldBox.values.toSet();
 
@@ -380,6 +383,13 @@ class AppSettingsController extends GetxController {
     autoFullScreen.value = e;
     LocalStorageService.instance
         .setValue(LocalStorageService.kAutoFullScreen, e);
+  }
+
+  /// 屏幕常亮模式: 0=关闭, 1=仅全屏, 2=始终
+  var wakeLockMode = 2.obs;
+  void setWakeLockMode(int e) {
+    wakeLockMode.value = e;
+    LocalStorageService.instance.setValue(LocalStorageService.kWakeLockMode, e);
   }
 
   var playershowSuperChat = true.obs;

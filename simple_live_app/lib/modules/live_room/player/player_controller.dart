@@ -298,6 +298,26 @@ mixin PlayerSystemMixin on PlayerMixin, PlayerStateMixin, PlayerDanmakuMixin {
 
   //final VolumeController volumeController = VolumeController();
 
+  /// 根据设置更新屏幕常亮状态
+  void updateWakelock() {
+    var mode = AppSettingsController.instance.wakeLockMode.value;
+    bool shouldEnable = false;
+    if (isPlaying.value) {
+      if (mode == 2) {
+        // 始终常亮
+        shouldEnable = true;
+      } else if (mode == 1) {
+        // 仅全屏时常亮
+        shouldEnable = fullScreenState.value;
+      }
+    }
+    if (shouldEnable) {
+      WakelockPlus.enable();
+    } else {
+      WakelockPlus.disable();
+    }
+  }
+
   /// 初始化一些系统状态
   void initSystem() async {
     if (Platform.isAndroid || Platform.isIOS) {
@@ -305,7 +325,7 @@ mixin PlayerSystemMixin on PlayerMixin, PlayerStateMixin, PlayerDanmakuMixin {
     }
 
     // 屏幕常亮
-    WakelockPlus.enable();
+    updateWakelock();
 
     // 开始隐藏计时
     resetHideControlsTimer();
@@ -341,6 +361,7 @@ mixin PlayerSystemMixin on PlayerMixin, PlayerStateMixin, PlayerDanmakuMixin {
   /// 进入全屏
   void enterFullScreen() {
     fullScreenState.value = true;
+    updateWakelock();
     if (Platform.isAndroid || Platform.isIOS) {
       //全屏
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: []);
@@ -364,6 +385,7 @@ mixin PlayerSystemMixin on PlayerMixin, PlayerStateMixin, PlayerDanmakuMixin {
       windowManager.setFullScreen(false);
     }
     fullScreenState.value = false;
+    updateWakelock();
 
     //danmakuController?.clear();
   }
@@ -376,6 +398,7 @@ mixin PlayerSystemMixin on PlayerMixin, PlayerStateMixin, PlayerDanmakuMixin {
     if (!(Platform.isAndroid || Platform.isIOS)) {
       fullScreenState.value = true;
       smallWindowState.value = true;
+      updateWakelock();
 
       // 读取窗口大小
       _lastWindowSize = await windowManager.getSize();
@@ -404,6 +427,7 @@ mixin PlayerSystemMixin on PlayerMixin, PlayerStateMixin, PlayerDanmakuMixin {
     if (!(Platform.isAndroid || Platform.isIOS)) {
       fullScreenState.value = false;
       smallWindowState.value = false;
+      updateWakelock();
       windowManager.setTitleBarStyle(TitleBarStyle.normal);
       windowManager.setSize(_lastWindowSize!);
       windowManager.setPosition(_lastWindowPosition!);
@@ -707,11 +731,21 @@ class PlayerController extends BaseController
         PlayerDanmakuMixin,
         PlayerSystemMixin,
         PlayerGestureControlMixin {
+  Worker? _wakeLockWorker;
+  Worker? _fullScreenWorker;
+  Worker? _playingWorker;
+
   @override
   void onInit() {
     WidgetsBinding.instance.addObserver(this);
     initSystem();
     initStream();
+    _wakeLockWorker = ever(
+      AppSettingsController.instance.wakeLockMode,
+      (_) => updateWakelock(),
+    );
+    _fullScreenWorker = ever(fullScreenState, (_) => updateWakelock());
+    _playingWorker = ever(isPlaying, (_) => updateWakelock());
     //设置音量
     player.setVolume(AppSettingsController.instance.playerVolume.value);
     super.onInit();
@@ -761,8 +795,8 @@ class PlayerController extends BaseController
     _playingSubscription = player.stream.playing.listen((event) {
       isPlaying.value = event;
       LiveAudioService.instance.updatePlayingState(event);
+      updateWakelock();
       if (event) {
-        WakelockPlus.enable();
         Log.d("Playing");
       }
     });
@@ -810,11 +844,13 @@ class PlayerController extends BaseController
   }
 
   void mediaEnd() {
-    WakelockPlus.disable();
+    isPlaying.value = false;
+    updateWakelock();
   }
 
   void mediaError(String error) {
-    WakelockPlus.disable();
+    isPlaying.value = false;
+    updateWakelock();
   }
 
   void showDebugInfo() {
@@ -919,6 +955,9 @@ class PlayerController extends BaseController
   @override
   void onClose() async {
     Log.w("播放器关闭");
+    _wakeLockWorker?.dispose();
+    _fullScreenWorker?.dispose();
+    _playingWorker?.dispose();
     WidgetsBinding.instance.removeObserver(this);
     LiveAudioService.instance.stopSession();
     if (smallWindowState.value) {

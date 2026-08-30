@@ -105,6 +105,9 @@ class LocalStorageService extends GetxService {
   /// 自动全屏
   static const String kAutoFullScreen = "AutoFullScreen";
 
+  /// 屏幕常亮模式: 0=关闭, 1=仅全屏, 2=始终
+  static const String kWakeLockMode = "WakeLockMode";
+
   /// 显示SC
   static const String kPlayerShowSuperChat = "PlayerShowSuperChat";
 

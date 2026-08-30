@@ -4,6 +4,7 @@ import 'package:canvas_danmaku/canvas_danmaku.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
+import 'package:simple_live_app/app/controller/app_settings_controller.dart';
 import 'package:simple_live_app/app/sites.dart';
 import 'package:simple_live_app/modules/multi_view/multi_view_item_controller.dart';
 import 'package:simple_live_app/modules/multi_view/widgets/multi_view_select_dialog.dart';
@@ -33,8 +34,28 @@ class MultiViewController extends GetxController {
   final RxInt maximizedIndex = 0.obs; // 最大化的视角序号
 
   Timer? _hideControlsTimer;
+  Worker? _wakeLockWorker;
+  Worker? _fullScreenWorker;
 
   DanmakuController? globalDanmakuController;
+
+  /// 根据设置更新屏幕常亮状态
+  void updateWakelock() {
+    var mode = AppSettingsController.instance.wakeLockMode.value;
+    bool shouldEnable = false;
+    if (mode == 2) {
+      // 始终常亮
+      shouldEnable = true;
+    } else if (mode == 1) {
+      // 仅全屏时常亮
+      shouldEnable = isFullScreen.value;
+    }
+    if (shouldEnable) {
+      WakelockPlus.enable();
+    } else {
+      WakelockPlus.disable();
+    }
+  }
 
   void initGlobalDanmakuController(DanmakuController c) {
     globalDanmakuController = c;
@@ -68,7 +89,12 @@ class MultiViewController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    WakelockPlus.enable();
+    updateWakelock();
+    _wakeLockWorker = ever(
+      AppSettingsController.instance.wakeLockMode,
+      (_) => updateWakelock(),
+    );
+    _fullScreenWorker = ever(isFullScreen, (_) => updateWakelock());
 
     // 初始化4个分屏控制器
     items = List.generate(
@@ -296,6 +322,8 @@ class MultiViewController extends GetxController {
 
   @override
   void onClose() {
+    _wakeLockWorker?.dispose();
+    _fullScreenWorker?.dispose();
     _hideControlsTimer?.cancel();
     WakelockPlus.disable();
     if (Platform.isAndroid || Platform.isIOS) {
