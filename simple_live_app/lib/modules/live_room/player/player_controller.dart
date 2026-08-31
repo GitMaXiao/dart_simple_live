@@ -302,19 +302,21 @@ mixin PlayerSystemMixin on PlayerMixin, PlayerStateMixin, PlayerDanmakuMixin {
   void updateWakelock() {
     var mode = AppSettingsController.instance.wakeLockMode.value;
     bool shouldEnable = false;
-    if (isPlaying.value) {
-      if (mode == 2) {
-        // 始终常亮
-        shouldEnable = true;
-      } else if (mode == 1) {
-        // 仅全屏时常亮
-        shouldEnable = fullScreenState.value;
-      }
+    if (mode == 2) {
+      // 始终常亮
+      shouldEnable = true;
+    } else if (mode == 1) {
+      // 仅全屏时常亮
+      shouldEnable = fullScreenState.value;
     }
-    if (shouldEnable) {
-      WakelockPlus.enable();
-    } else {
-      WakelockPlus.disable();
+    try {
+      if (shouldEnable) {
+        WakelockPlus.enable();
+      } else {
+        WakelockPlus.disable();
+      }
+    } catch (e) {
+      Log.logPrint("设置屏幕常亮失败: $e");
     }
   }
 
@@ -768,6 +770,7 @@ class PlayerController extends BaseController
           (player.platform as dynamic)?.setProperty('vid', 'auto');
         } catch (_) {}
       }
+      updateWakelock();
     }
   }
 

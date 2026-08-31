@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:simple_live_app/app/controller/app_settings_controller.dart';
+import 'package:simple_live_app/app/log.dart';
 import 'package:simple_live_app/app/sites.dart';
 import 'package:simple_live_app/modules/multi_view/multi_view_item_controller.dart';
 import 'package:simple_live_app/modules/multi_view/widgets/multi_view_select_dialog.dart';
@@ -50,10 +51,14 @@ class MultiViewController extends GetxController {
       // 仅全屏时常亮
       shouldEnable = isFullScreen.value;
     }
-    if (shouldEnable) {
-      WakelockPlus.enable();
-    } else {
-      WakelockPlus.disable();
+    try {
+      if (shouldEnable) {
+        WakelockPlus.enable();
+      } else {
+        WakelockPlus.disable();
+      }
+    } catch (e) {
+      Log.logPrint("多路观看设置屏幕常亮失败: $e");
     }
   }
 

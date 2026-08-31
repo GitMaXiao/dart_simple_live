@@ -774,6 +774,7 @@ class MultiViewPage extends GetView<MultiViewController> {
                           controls: NoVideoControls,
                           fit: BoxFit.contain,
                           alignment: Alignment.center,
+                          wakelock: false,
                         ),
                       )
                     else
