@@ -96,6 +96,9 @@ mixin PlayerStateMixin on PlayerMixin {
   /// 是否进入桌面端小窗
   RxBool smallWindowState = false.obs;
 
+  /// 是否开启纯音频模式（只播音频）
+  RxBool isAudioOnly = false.obs;
+
   /// 是否显示弹幕
   RxBool showDanmakuState = false.obs;
 
@@ -753,6 +756,27 @@ class PlayerController extends BaseController
     super.onInit();
   }
 
+  /// 切换纯音频模式
+  Future<void> toggleAudioOnly([bool? enable]) async {
+    bool target = enable ?? !isAudioOnly.value;
+    await setAudioOnly(target);
+  }
+
+  /// 设置纯音频模式
+  Future<void> setAudioOnly(bool value) async {
+    isAudioOnly.value = value;
+    try {
+      if (value) {
+        await player.setVideoTrack(VideoTrack.no());
+      } else {
+        await player.setVideoTrack(VideoTrack.auto());
+      }
+      SmartDialog.showToast(value ? "已开启纯音频模式" : "已恢复视频播放");
+    } catch (e) {
+      Log.e("设置纯音频模式失败: $e", StackTrace.current);
+    }
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
@@ -764,8 +788,10 @@ class PlayerController extends BaseController
         } catch (_) {}
       }
     } else if (state == AppLifecycleState.resumed) {
-      // 返回前台恢复视频渲染
-      if (!AppSettingsController.instance.playerAutoPause.value && Platform.isAndroid) {
+      // 返回前台恢复视频渲染（若用户开启了纯音频模式，则保持禁用）
+      if (!AppSettingsController.instance.playerAutoPause.value &&
+          Platform.isAndroid &&
+          !isAudioOnly.value) {
         try {
           (player.platform as dynamic)?.setProperty('vid', 'auto');
         } catch (_) {}

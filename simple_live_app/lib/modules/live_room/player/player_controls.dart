@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:io';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -15,9 +17,9 @@ import 'package:simple_live_app/routes/route_path.dart';
 import 'package:simple_live_app/services/follow_service.dart';
 import 'package:simple_live_app/widgets/desktop_refresh_button.dart';
 import 'package:simple_live_app/widgets/follow_user_item.dart';
+import 'package:simple_live_app/widgets/net_image.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:simple_live_app/widgets/superchat_card.dart';
-import 'dart:async';
 import 'package:simple_live_core/simple_live_core.dart';
 
 String formatVODDuration(Duration d) {
@@ -246,6 +248,7 @@ Widget buildFullControls(
     child: Stack(
       children: [
         Container(),
+        buildAudioOnlyOverlay(controller, videoState.context),
         buildDanmuView(videoState, controller),
 
         // 左下角SC显示
@@ -296,16 +299,6 @@ Widget buildFullControls(
                 width: double.infinity,
                 height: double.infinity,
                 color: Colors.transparent,
-                // child: Visibility(
-                //   //拖拽区域
-                //   visible: controller.smallWindowState.value,
-                //   child: DragToMoveArea(
-                //       child: Container(
-                //     width: double.infinity,
-                //     height: double.infinity,
-                //     color: Colors.transparent,
-                //   )),
-                // ),
               ),
             ),
           ),
@@ -319,22 +312,22 @@ Widget buildFullControls(
             top: (controller.showControlsState.value &&
                     !controller.lockControlsState.value)
                 ? 0
-                : -(48 + padding.top),
+                : -(64 + padding.top),
             duration: const Duration(milliseconds: 200),
             child: Container(
-              height: 48 + padding.top,
               padding: EdgeInsets.only(
-                left: padding.left + 12,
-                right: padding.right + 12,
-                top: padding.top,
+                top: padding.top + 4,
+                left: padding.left + 8,
+                right: padding.right + 8,
+                bottom: 4,
               ),
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
                   colors: [
-                    Colors.transparent,
                     Colors.black87,
+                    Colors.transparent,
                   ],
                 ),
               ),
@@ -386,6 +379,24 @@ Widget buildFullControls(
                           label: const Text("返回直播",
                               style: TextStyle(fontSize: 13)),
                         ),
+                      ),
+                    ),
+                  ),
+                  Obx(
+                    () => IconButton(
+                      tooltip:
+                          controller.isAudioOnly.value ? "恢复视频" : "纯音频模式",
+                      onPressed: () {
+                        controller.toggleAudioOnly();
+                      },
+                      icon: Icon(
+                        controller.isAudioOnly.value
+                            ? Remix.headphone_fill
+                            : Remix.headphone_line,
+                        color: controller.isAudioOnly.value
+                            ? Theme.of(videoState.context).colorScheme.primary
+                            : Colors.white,
+                        size: 24,
                       ),
                     ),
                   ),
@@ -680,6 +691,7 @@ Widget buildControls(
   return Stack(
     children: [
       Container(),
+      buildAudioOnlyOverlay(controller, videoState.context),
       buildDanmuView(videoState, controller),
 
       // 左下角SC显示
@@ -845,6 +857,24 @@ Widget buildControls(
                         controller.currentLineInfo.value,
                         style:
                             const TextStyle(color: Colors.white, fontSize: 15),
+                      ),
+                    ),
+                  ),
+                  Obx(
+                    () => IconButton(
+                      tooltip:
+                          controller.isAudioOnly.value ? "恢复视频" : "纯音频模式",
+                      onPressed: () {
+                        controller.toggleAudioOnly();
+                      },
+                      icon: Icon(
+                        controller.isAudioOnly.value
+                            ? Remix.headphone_fill
+                            : Remix.headphone_line,
+                        color: controller.isAudioOnly.value
+                            ? Theme.of(videoState.context).colorScheme.primary
+                            : Colors.white,
+                        size: 20,
                       ),
                     ),
                   ),
@@ -1053,54 +1083,75 @@ void showPlayerSettings(LiveRoomController controller) {
     width: 320,
     useSystem: true,
     child: Obx(
-      () => RadioGroup(
-        groupValue: AppSettingsController.instance.scaleMode.value,
-        onChanged: (e) {
-          AppSettingsController.instance.setScaleMode(e ?? 0);
-          controller.updateScaleMode();
-        },
-        child: ListView(
-          padding: AppStyle.edgeInsetsV12,
-          children: [
-            Padding(
-              padding: AppStyle.edgeInsetsH16,
-              child: Text(
-                "画面尺寸",
-                style: Get.textTheme.titleMedium,
-              ),
+      () => ListView(
+        padding: AppStyle.edgeInsetsV12,
+        children: [
+          SwitchListTile(
+            secondary: Icon(
+              controller.isAudioOnly.value
+                  ? Remix.headphone_fill
+                  : Remix.headphone_line,
+              color: controller.isAudioOnly.value
+                  ? Get.theme.colorScheme.primary
+                  : null,
             ),
-            const RadioListTile(
-              value: 0,
-              contentPadding: AppStyle.edgeInsetsH4,
-              title: Text("适应"),
-              visualDensity: VisualDensity.compact,
+            title: const Text("纯音频模式"),
+            subtitle: const Text("仅解码并播放音频，关闭视频渲染以省电"),
+            value: controller.isAudioOnly.value,
+            onChanged: (val) {
+              controller.setAudioOnly(val);
+            },
+          ),
+          const Divider(),
+          Padding(
+            padding: AppStyle.edgeInsetsH16,
+            child: Text(
+              "画面尺寸",
+              style: Get.textTheme.titleMedium,
             ),
-            const RadioListTile(
-              value: 1,
-              contentPadding: AppStyle.edgeInsetsH4,
-              title: Text("拉伸"),
-              visualDensity: VisualDensity.compact,
+          ),
+          RadioGroup(
+            groupValue: AppSettingsController.instance.scaleMode.value,
+            onChanged: (e) {
+              AppSettingsController.instance.setScaleMode(e ?? 0);
+              controller.updateScaleMode();
+            },
+            child: const Column(
+              children: [
+                RadioListTile(
+                  value: 0,
+                  contentPadding: AppStyle.edgeInsetsH4,
+                  title: Text("适应"),
+                  visualDensity: VisualDensity.compact,
+                ),
+                RadioListTile(
+                  value: 1,
+                  contentPadding: AppStyle.edgeInsetsH4,
+                  title: Text("拉伸"),
+                  visualDensity: VisualDensity.compact,
+                ),
+                RadioListTile(
+                  value: 2,
+                  contentPadding: AppStyle.edgeInsetsH4,
+                  title: Text("铺满"),
+                  visualDensity: VisualDensity.compact,
+                ),
+                RadioListTile(
+                  value: 3,
+                  contentPadding: AppStyle.edgeInsetsH4,
+                  title: Text("16:9"),
+                  visualDensity: VisualDensity.compact,
+                ),
+                RadioListTile(
+                  value: 4,
+                  contentPadding: AppStyle.edgeInsetsH4,
+                  title: Text("4:3"),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ],
             ),
-            const RadioListTile(
-              value: 2,
-              contentPadding: AppStyle.edgeInsetsH4,
-              title: Text("铺满"),
-              visualDensity: VisualDensity.compact,
-            ),
-            const RadioListTile(
-              value: 3,
-              contentPadding: AppStyle.edgeInsetsH4,
-              title: Text("16:9"),
-              visualDensity: VisualDensity.compact,
-            ),
-            const RadioListTile(
-              value: 4,
-              contentPadding: AppStyle.edgeInsetsH4,
-              title: Text("4:3"),
-              visualDensity: VisualDensity.compact,
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     ),
   );
@@ -1303,4 +1354,141 @@ class _PlayerSuperChatOverlayState extends State<PlayerSuperChatOverlay> {
       ],
     );
   }
+}
+
+/// 纯音频模式电台风格视觉覆盖层
+Widget buildAudioOnlyOverlay(
+  LiveRoomController controller,
+  BuildContext context,
+) {
+  return Obx(() {
+    if (!controller.isAudioOnly.value) {
+      return const SizedBox.shrink();
+    }
+    final detail = controller.detail.value;
+    final avatar = detail?.userAvatar ?? "";
+    final cover = detail?.cover ?? "";
+    final name = detail?.userName ?? "";
+
+    return Positioned.fill(
+      child: Container(
+        color: const Color(0xFF121212),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // 磨砂模糊封面背景
+            if (cover.isNotEmpty || avatar.isNotEmpty)
+              Opacity(
+                opacity: 0.35,
+                child: ImageFiltered(
+                  imageFilter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+                  child: NetImage(
+                    cover.isNotEmpty ? cover : avatar,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+            // 渐变蒙层
+            Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black45,
+                    Colors.black87,
+                  ],
+                ),
+              ),
+            ),
+            // 居中信息
+            Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .primary
+                            .withAlpha(200),
+                        width: 3,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .primary
+                              .withAlpha(90),
+                          blurRadius: 20,
+                          spreadRadius: 4,
+                        ),
+                      ],
+                    ),
+                    child: avatar.isNotEmpty
+                        ? NetImage(
+                            avatar,
+                            width: 72,
+                            height: 72,
+                            borderRadius: 36,
+                          )
+                        : const CircleAvatar(
+                            radius: 36,
+                            child: Icon(Remix.radio_2_line, size: 36),
+                          ),
+                  ),
+                  AppStyle.vGap12,
+                  if (name.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  AppStyle.vGap8,
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.white24),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Remix.headphone_fill,
+                          size: 14,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        const SizedBox(width: 6),
+                        const Text(
+                          "纯音频模式运行中 (已停止视频画面渲染)",
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  });
 }

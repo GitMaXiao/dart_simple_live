@@ -8,6 +8,7 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:canvas_danmaku/canvas_danmaku.dart';
+import 'package:remixicon/remixicon.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:simple_live_app/app/app_style.dart';
 import 'package:simple_live_app/app/constant.dart';
@@ -507,6 +508,11 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
     await initializePlayer();
 
     await player.open(Playlist(mediaList));
+    if (isAudioOnly.value) {
+      try {
+        await player.setVideoTrack(VideoTrack.no());
+      } catch (_) {}
+    }
     updateAudioSession();
   }
 
@@ -515,6 +521,11 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
     errorMsg.value = "";
 
     await player.jump(currentLineIndex);
+    if (isAudioOnly.value) {
+      try {
+        await player.setVideoTrack(VideoTrack.no());
+      } catch (_) {}
+    }
   }
 
   @override
@@ -932,44 +943,73 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
 
   void showPlayerSettingsSheet() {
     Utils.showBottomSheet(
-      title: "画面尺寸",
+      title: "播放设置",
       child: Obx(
-        () => RadioGroup(
-          groupValue: AppSettingsController.instance.scaleMode.value,
-          onChanged: (e) {
-            AppSettingsController.instance.setScaleMode(e ?? 0);
-            updateScaleMode();
-          },
-          child: ListView(
-            padding: AppStyle.edgeInsetsV12,
-            children: const [
-              RadioListTile(
-                value: 0,
-                title: Text("适应"),
-                visualDensity: VisualDensity.compact,
+        () => ListView(
+          padding: AppStyle.edgeInsetsV12,
+          children: [
+            SwitchListTile(
+              secondary: Icon(
+                isAudioOnly.value
+                    ? Remix.headphone_fill
+                    : Remix.headphone_line,
+                color: isAudioOnly.value
+                    ? Get.theme.colorScheme.primary
+                    : null,
               ),
-              RadioListTile(
-                value: 1,
-                title: Text("拉伸"),
-                visualDensity: VisualDensity.compact,
+              title: const Text("纯音频模式"),
+              subtitle: const Text("仅解码并播放音频，关闭视频渲染以省电省流"),
+              value: isAudioOnly.value,
+              onChanged: (val) {
+                Get.back();
+                setAudioOnly(val);
+              },
+            ),
+            const Divider(),
+            Padding(
+              padding: AppStyle.edgeInsetsH16.copyWith(top: 8, bottom: 4),
+              child: Text(
+                "画面尺寸",
+                style: Get.textTheme.titleSmall,
               ),
-              RadioListTile(
-                value: 2,
-                title: Text("铺满"),
-                visualDensity: VisualDensity.compact,
+            ),
+            RadioGroup(
+              groupValue: AppSettingsController.instance.scaleMode.value,
+              onChanged: (e) {
+                AppSettingsController.instance.setScaleMode(e ?? 0);
+                updateScaleMode();
+              },
+              child: const Column(
+                children: [
+                  RadioListTile(
+                    value: 0,
+                    title: Text("适应"),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  RadioListTile(
+                    value: 1,
+                    title: Text("拉伸"),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  RadioListTile(
+                    value: 2,
+                    title: Text("铺满"),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  RadioListTile(
+                    value: 3,
+                    title: Text("16:9"),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  RadioListTile(
+                    value: 4,
+                    title: Text("4:3"),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ],
               ),
-              RadioListTile(
-                value: 3,
-                title: Text("16:9"),
-                visualDensity: VisualDensity.compact,
-              ),
-              RadioListTile(
-                value: 4,
-                title: Text("4:3"),
-                visualDensity: VisualDensity.compact,
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

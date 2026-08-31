@@ -1176,7 +1176,7 @@ class LiveRoomPage extends GetView<LiveRoomController> {
         maxWidth: 600,
       ),
       isScrollControlled: true,
-      builder: (_) => Container(
+      builder: (context) => Container(
         padding: EdgeInsets.only(
           bottom: AppStyle.bottomBarHeight,
         ),
@@ -1208,6 +1208,36 @@ class LiveRoomPage extends GetView<LiveRoomController> {
                 Get.back();
                 controller.showPlayUrlsSheet();
               },
+            ),
+            Obx(
+              () => ListTile(
+                leading: Icon(
+                  controller.isAudioOnly.value
+                      ? Remix.headphone_fill
+                      : Remix.headphone_line,
+                  color: controller.isAudioOnly.value
+                      ? Theme.of(context).colorScheme.primary
+                      : null,
+                ),
+                title: const Text("纯音频模式"),
+                subtitle: Text(
+                  controller.isAudioOnly.value
+                      ? "已开启 (关闭画面渲染/省电省流)"
+                      : "已关闭",
+                  style: const TextStyle(fontSize: 12),
+                ),
+                trailing: Switch(
+                  value: controller.isAudioOnly.value,
+                  onChanged: (val) {
+                    Get.back();
+                    controller.setAudioOnly(val);
+                  },
+                ),
+                onTap: () {
+                  Get.back();
+                  controller.toggleAudioOnly();
+                },
+              ),
             ),
             ListTile(
               leading: const Icon(Icons.aspect_ratio_outlined),
