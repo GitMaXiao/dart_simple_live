@@ -162,7 +162,7 @@ class MultiViewPage extends GetView<MultiViewController> {
                               : Colors.orangeAccent,
                         ),
                         tooltip: controller.isSoloAudioMode.value
-                            ? "焦点独占音频 (点击切混音)"
+                            ? "省电单音（焦点独占，点击切混音）"
                             : "多路混音模式 (点击切独占)",
                         onPressed: () => controller.toggleAudioMode(),
                       ),
@@ -457,7 +457,7 @@ class MultiViewPage extends GetView<MultiViewController> {
                                 : Colors.orangeAccent,
                             size: 17,
                           ),
-                          tooltip: controller.isSoloAudioMode.value ? "焦点独占音频" : "多路混音",
+                          tooltip: controller.isSoloAudioMode.value ? "省电单音" : "多路混音",
                           onPressed: () {
                             controller.showControlsTemporarily();
                             controller.toggleAudioMode();

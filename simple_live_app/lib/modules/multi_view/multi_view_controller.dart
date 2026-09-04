@@ -253,19 +253,14 @@ class MultiViewController extends GetxController {
 
   /// 切换音频模式（独占发声 vs 独立混音）
   void toggleAudioMode() {
-    isSoloAudioMode.value = true;
+    isSoloAudioMode.toggle();
     if (isSoloAudioMode.value) {
       // 启用独占模式
       setFocus(focusedIndex.value);
       SmartDialog.showToast("已开启【焦点独占发声】模式");
     } else {
-      // 启用混音模式：解静音所有有直播间的窗口
-      for (var item in items) {
-        if (item.hasRoom.value) {
-          item.mute(false);
-        }
-      }
-      SmartDialog.showToast("已开启【多路混音】模式");
+      _schedulePlaybackPolicy();
+      SmartDialog.showToast("已开启【多路混音】模式（仅已解码画面）");
     }
   }
 
@@ -300,6 +295,9 @@ class MultiViewController extends GetxController {
           (index) => items[index].applyPlaybackPolicy(
             shouldDecode: decodedIndexes.contains(index),
             isPrimary: index == primaryIndex,
+            isAudible: isSoloAudioMode.value
+                ? index == primaryIndex
+                : decodedIndexes.contains(index),
           ),
         ),
       );

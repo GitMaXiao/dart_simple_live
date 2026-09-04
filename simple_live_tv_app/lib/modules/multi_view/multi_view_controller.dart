@@ -181,17 +181,13 @@ class TVMultiViewController extends GetxController {
 
   /// 切换音频模式（独占发声 vs 独立混音）
   void toggleAudioMode() {
-    isSoloAudioMode.value = true;
+    isSoloAudioMode.toggle();
     if (isSoloAudioMode.value) {
       setFocus(focusedIndex.value);
       SmartDialog.showToast("已开启【焦点独占发声】");
     } else {
-      for (var item in items) {
-        if (item.hasRoom.value) {
-          item.mute(false);
-        }
-      }
-      SmartDialog.showToast("已开启【多路混音】模式");
+      _schedulePlaybackPolicy();
+      SmartDialog.showToast("已开启【多路混音】模式（仅已解码画面）");
     }
   }
 
@@ -226,6 +222,9 @@ class TVMultiViewController extends GetxController {
           (index) => items[index].applyPlaybackPolicy(
             shouldDecode: decodedIndexes.contains(index),
             isPrimary: index == primaryIndex,
+            isAudible: isSoloAudioMode.value
+                ? index == primaryIndex
+                : decodedIndexes.contains(index),
           ),
         ),
       );

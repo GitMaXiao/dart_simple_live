@@ -99,7 +99,7 @@ class TVMultiViewPage extends GetView<TVMultiViewController> {
                         iconData: controller.isSoloAudioMode.value
                             ? Remix.volume_up_line
                             : Remix.sound_module_line,
-                        text: controller.isSoloAudioMode.value ? "焦点发声" : "多路混音",
+                        text: controller.isSoloAudioMode.value ? "省电单音" : "多路混音",
                         selected: !controller.isSoloAudioMode.value,
                         onTap: () => controller.toggleAudioMode(),
                       ),

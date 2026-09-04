@@ -198,9 +198,10 @@ class MultiViewItemController {
   Future<void> applyPlaybackPolicy({
     required bool shouldDecode,
     required bool isPrimary,
+    required bool isAudible,
   }) async {
     final version = ++_policyVersion;
-    mute(!isPrimary);
+    mute(!isAudible);
     if (!hasRoom.value) return;
 
     try {
