@@ -4,25 +4,43 @@
 /// 会保存一个方法，在最后还会调用一次，和普通的 throttle 不太一样
 class DelayedThrottle {
   bool isInvoking = false;
+  bool _cancelled = false;
   int eachDelayMilli;
   Future Function()? storeFunc;
 
   DelayedThrottle(this.eachDelayMilli);
 
   void invoke(Future Function() longCostFunc) {
+    if (_cancelled) {
+      return;
+    }
     if (isInvoking) {
       storeFunc = longCostFunc;
       return;
     }
     storeFunc = null;
     isInvoking = true;
-    longCostFunc().then((value) {
-      Future.delayed(Duration(milliseconds: eachDelayMilli), () {
-        isInvoking = false;
-        if (storeFunc != null) {
-          invoke(storeFunc!);
-        }
-      });
-    });
+    _finishInvocation(longCostFunc);
+  }
+
+  Future<void> _finishInvocation(Future Function() longCostFunc) async {
+    try {
+      await longCostFunc();
+    } catch (_) {
+      // Gesture callbacks must not leave an unhandled asynchronous error.
+    }
+    await Future.delayed(Duration(milliseconds: eachDelayMilli));
+    if (_cancelled) {
+      return;
+    }
+    isInvoking = false;
+    if (storeFunc != null) {
+      invoke(storeFunc!);
+    }
+  }
+
+  void cancel() {
+    _cancelled = true;
+    storeFunc = null;
   }
 }

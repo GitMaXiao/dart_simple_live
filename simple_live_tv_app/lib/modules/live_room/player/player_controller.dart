@@ -163,8 +163,11 @@ mixin PlayerStateMixin on PlayerMixin {
   }
 }
 mixin PlayerDanmakuMixin on PlayerStateMixin {
+  static const _minimumDanmakuInterval = Duration(milliseconds: 80);
+
   /// 弹幕控制器
   DanmakuController? danmakuController;
+  DateTime? _lastDanmakuAt;
 
   void initDanmakuController(DanmakuController e) {
     danmakuController = e;
@@ -186,14 +189,22 @@ mixin PlayerDanmakuMixin on PlayerStateMixin {
 
   void disposeDanmakuController() {
     danmakuController?.clear();
+    danmakuController = null;
+    _lastDanmakuAt = null;
   }
 
   void addDanmaku(List<DanmakuContentItem> items) {
-    if (!showDanmakuState.value) {
+    if (!showDanmakuState.value || danmakuController == null || items.isEmpty) {
       return;
     }
+    final now = DateTime.now();
+    if (_lastDanmakuAt != null &&
+        now.difference(_lastDanmakuAt!) < _minimumDanmakuInterval) {
+      return;
+    }
+    _lastDanmakuAt = now;
     for (var item in items) {
-      danmakuController?.addDanmaku(item);
+      danmakuController!.addDanmaku(item);
     }
   }
 }

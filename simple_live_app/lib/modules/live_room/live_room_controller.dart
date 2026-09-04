@@ -32,6 +32,9 @@ import 'package:url_launcher/url_launcher_string.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 class LiveRoomController extends PlayerController with WidgetsBindingObserver {
+  static const _maxChatMessages = 200;
+  static const _maxSuperChats = 30;
+
   final Site pSite;
   final String pRoomId;
   late LiveDanmaku liveDanmaku;
@@ -223,8 +226,8 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
   /// 接收到WebSocket信息
   void onWSMessage(LiveMessage msg) {
     if (msg.type == LiveMessageType.chat) {
-      if (messages.length >= 200) {
-        messages.removeRange(0, messages.length - 199);
+      if (isBackground) {
+        return;
       }
 
       // 关键词屏蔽检查
@@ -247,7 +250,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
         }
       }
 
-      messages.add(msg);
+      _addChatMessage(msg);
 
       WidgetsBinding.instance.addPostFrameCallback(
         (_) => chatScrollToBottom(),
@@ -271,12 +274,28 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
       online.value = msg.data;
     } else if (msg.type == LiveMessageType.superChat) {
       superChats.add(msg.data);
+      _trimSuperChats();
+    }
+  }
+
+  void _addChatMessage(LiveMessage msg) {
+    if (messages.length >= _maxChatMessages) {
+      messages.removeRange(0, messages.length - _maxChatMessages + 1);
+    }
+    messages.add(msg);
+  }
+
+  void _trimSuperChats() {
+    final now = DateTime.now();
+    superChats.removeWhere((item) => item.endTime.isBefore(now));
+    if (superChats.length > _maxSuperChats) {
+      superChats.removeRange(0, superChats.length - _maxSuperChats);
     }
   }
 
   /// 添加一条系统消息
   void addSysMsg(String msg) {
-    messages.add(
+    _addChatMessage(
       LiveMessage(
         type: LiveMessageType.chat,
         userName: "LiveSysMessage",
@@ -595,6 +614,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
       var sc =
           await site.liveSite.getSuperChatMessage(roomId: detail.value!.roomId);
       superChats.addAll(sc);
+      _trimSuperChats();
     } catch (e) {
       Log.logPrint(e);
       addSysMsg("SC读取失败");
