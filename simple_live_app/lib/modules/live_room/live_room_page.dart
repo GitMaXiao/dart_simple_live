@@ -90,18 +90,14 @@ class LiveRoomPage extends GetView<LiveRoomController> {
           );
         }
         if (controller.fullScreenState.value) {
-          return PopScope(
-            canPop: false,
-            onPopInvokedWithResult: (e, r) {
-              controller.exitFull();
-            },
-            child: Scaffold(
-              body: buildMediaPlayer(),
-            ),
-          );
-        } else {
-          return buildPageUI();
+          return _FullScreenLiveRoom(page: this);
         }
+        return _LiveRoomContent(
+          key: ValueKey(
+            '${controller.rxSite.value.id}_${controller.rxRoomId.value}',
+          ),
+          page: this,
+        );
       },
     );
     if (!Platform.isAndroid) {
@@ -387,23 +383,7 @@ class LiveRoomPage extends GetView<LiveRoomController> {
               ),
             ),
             AppStyle.hGap12,
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Remix.fire_fill,
-                  size: 20,
-                  color: Colors.orange,
-                ),
-                AppStyle.hGap4,
-                Text(
-                  Utils.onlineToString(
-                    controller.detail.value?.online ?? 0,
-                  ),
-                  style: const TextStyle(fontSize: 14),
-                ),
-              ],
-            ),
+            _LiveRoomOnlineCount(controller: controller),
           ],
         ),
       ),
@@ -1008,16 +988,7 @@ class LiveRoomPage extends GetView<LiveRoomController> {
     return ListView(
       padding: AppStyle.edgeInsetsA12,
       children: [
-        Obx(
-          () => Visibility(
-            visible: controller.autoExitEnable.value,
-            child: ListTile(
-              leading: const Icon(Icons.timer_outlined),
-              visualDensity: VisualDensity.compact,
-              title: Text("${parseDuration(controller.countdown.value)}后自动关闭"),
-            ),
-          ),
-        ),
+        _AutoExitCountdown(controller: controller),
         Padding(
           padding: AppStyle.edgeInsetsA12,
           child: Text(
@@ -1331,6 +1302,91 @@ class LiveRoomPage extends GetView<LiveRoomController> {
       return "${m.toString().padLeft(2, '0')}分钟${s.toString().padLeft(2, '0')}秒";
     }
     return "${s.toString().padLeft(2, '0')}秒";
+  }
+}
+
+class _LiveRoomContent extends StatelessWidget {
+  const _LiveRoomContent({super.key, required this.page});
+
+  final LiveRoomPage page;
+
+  @override
+  Widget build(BuildContext context) => page.buildPageUI();
+}
+
+class _FullScreenLiveRoom extends StatelessWidget {
+  const _FullScreenLiveRoom({required this.page});
+
+  final LiveRoomPage page;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (_, __) => page.controller.exitFull(),
+      child: Scaffold(body: page.buildMediaPlayer()),
+    );
+  }
+}
+
+class _LiveRoomOnlineCount extends StatelessWidget {
+  const _LiveRoomOnlineCount({required this.controller});
+
+  final LiveRoomController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(
+      () => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Remix.fire_fill, size: 20, color: Colors.orange),
+          AppStyle.hGap4,
+          Text(
+            Utils.onlineToString(controller.online.value),
+            style: const TextStyle(fontSize: 14),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AutoExitCountdown extends StatelessWidget {
+  const _AutoExitCountdown({required this.controller});
+
+  final LiveRoomController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(
+      () => Visibility(
+        visible: controller.autoExitEnable.value,
+        child: ListTile(
+          leading: const Icon(Icons.timer_outlined),
+          visualDensity: VisualDensity.compact,
+          title: Text(
+            "${_formatDuration(controller.countdown.value)}后自动关闭",
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatDuration(int seconds) {
+    final hours = seconds ~/ 3600;
+    final minutes = (seconds % 3600) ~/ 60;
+    final remainingSeconds = seconds % 60;
+    if (hours > 0) {
+      return '${hours.toString().padLeft(2, '0')}小时'
+          '${minutes.toString().padLeft(2, '0')}分钟'
+          '${remainingSeconds.toString().padLeft(2, '0')}秒';
+    }
+    if (minutes > 0) {
+      return '${minutes.toString().padLeft(2, '0')}分钟'
+          '${remainingSeconds.toString().padLeft(2, '0')}秒';
+    }
+    return '${remainingSeconds.toString().padLeft(2, '0')}秒';
   }
 }
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:canvas_danmaku/canvas_danmaku.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -22,10 +24,14 @@ enum TVMultiViewDanmakuMode {
 }
 
 class TVMultiViewController extends GetxController {
+  static const maxConcurrentDecoders = 3;
+
   final Rx<TVMultiViewLayout> layout = TVMultiViewLayout.four.obs;
   final RxInt focusedIndex = 0.obs;
   final RxBool isSoloAudioMode = true.obs; // 默认仅主焦点发声
   final Rx<TVMultiViewDanmakuMode> danmakuMode = TVMultiViewDanmakuMode.primary.obs; // 默认开启主视角弹幕
+  bool _isApplyingPlaybackPolicy = false;
+  bool _playbackPolicyPending = false;
 
   DanmakuController? globalDanmakuController;
 
@@ -49,11 +55,13 @@ class TVMultiViewController extends GetxController {
       4,
       (index) => MultiViewItemController(
         index: index,
+        onPlaybackStateChanged: _schedulePlaybackPolicy,
       ),
     );
 
     // 处理初始传入的直播间参数
     _handleInitialArguments();
+    _schedulePlaybackPolicy();
   }
 
   void _handleInitialArguments() {
@@ -76,6 +84,7 @@ class TVMultiViewController extends GetxController {
     if (focusedIndex.value >= maxVisible) {
       setFocus(0);
     }
+    _schedulePlaybackPolicy();
   }
 
   int getVisibleCount() {
@@ -167,11 +176,12 @@ class TVMultiViewController extends GetxController {
         }
       }
     }
+    _schedulePlaybackPolicy();
   }
 
   /// 切换音频模式（独占发声 vs 独立混音）
   void toggleAudioMode() {
-    isSoloAudioMode.value = !isSoloAudioMode.value;
+    isSoloAudioMode.value = true;
     if (isSoloAudioMode.value) {
       setFocus(focusedIndex.value);
       SmartDialog.showToast("已开启【焦点独占发声】");
@@ -186,6 +196,48 @@ class TVMultiViewController extends GetxController {
   }
 
   /// 选择并添加/替换直播间
+  void _schedulePlaybackPolicy() {
+    if (_isApplyingPlaybackPolicy) {
+      _playbackPolicyPending = true;
+      return;
+    }
+    unawaited(_applyPlaybackPolicy());
+  }
+
+  Future<void> _applyPlaybackPolicy() async {
+    if (_isApplyingPlaybackPolicy) return;
+    _isApplyingPlaybackPolicy = true;
+    try {
+      final visibleIndexes = List.generate(getVisibleCount(), (index) => index);
+      final primaryIndex = visibleIndexes.contains(focusedIndex.value)
+          ? focusedIndex.value
+          : visibleIndexes.first;
+      final decodedIndexes = <int>[primaryIndex];
+      for (final index in visibleIndexes) {
+        if (index != primaryIndex &&
+            decodedIndexes.length < maxConcurrentDecoders) {
+          decodedIndexes.add(index);
+        }
+      }
+
+      await Future.wait(
+        List.generate(
+          items.length,
+          (index) => items[index].applyPlaybackPolicy(
+            shouldDecode: decodedIndexes.contains(index),
+            isPrimary: index == primaryIndex,
+          ),
+        ),
+      );
+    } finally {
+      _isApplyingPlaybackPolicy = false;
+      if (_playbackPolicyPending) {
+        _playbackPolicyPending = false;
+        _schedulePlaybackPolicy();
+      }
+    }
+  }
+
   Future<void> selectRoomForItem(int index) async {
     var result = await TVMultiViewSelectDialog.show();
     if (result != null) {
@@ -238,4 +290,3 @@ class TVMultiViewController extends GetxController {
     super.onClose();
   }
 }
-

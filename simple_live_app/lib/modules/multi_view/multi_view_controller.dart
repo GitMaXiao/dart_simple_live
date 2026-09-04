@@ -25,6 +25,8 @@ enum MultiViewDanmakuMode {
 }
 
 class MultiViewController extends GetxController {
+  static const maxConcurrentDecoders = 2;
+
   final Rx<MultiViewLayout> layout = MultiViewLayout.four.obs;
   final RxInt focusedIndex = 0.obs;
   final RxBool isSoloAudioMode = true.obs; // 默认仅主焦点发声
@@ -37,6 +39,8 @@ class MultiViewController extends GetxController {
   Timer? _hideControlsTimer;
   Worker? _wakeLockWorker;
   Worker? _fullScreenWorker;
+  bool _isApplyingPlaybackPolicy = false;
+  bool _playbackPolicyPending = false;
 
   DanmakuController? globalDanmakuController;
 
@@ -107,11 +111,13 @@ class MultiViewController extends GetxController {
       (index) => MultiViewItemController(
         index: index,
         onFocusRequested: (i) => setFocus(i),
+        onPlaybackStateChanged: _schedulePlaybackPolicy,
       ),
     );
 
     // 处理初始传入的直播间参数
     _handleInitialArguments();
+    _schedulePlaybackPolicy();
   }
 
   void _handleInitialArguments() {
@@ -136,6 +142,7 @@ class MultiViewController extends GetxController {
     if (focusedIndex.value >= maxVisible) {
       setFocus(0);
     }
+    _schedulePlaybackPolicy();
   }
 
   /// 双击最大化或还原单视角
@@ -143,6 +150,7 @@ class MultiViewController extends GetxController {
     if (index < 0 || index >= items.length) return;
     if (isMaximized.value && maximizedIndex.value == index) {
       isMaximized.value = false;
+      _schedulePlaybackPolicy();
       SmartDialog.showToast("已恢复多分屏模式");
     } else {
       isMaximized.value = true;
@@ -240,11 +248,12 @@ class MultiViewController extends GetxController {
         }
       }
     }
+    _schedulePlaybackPolicy();
   }
 
   /// 切换音频模式（独占发声 vs 独立混音）
   void toggleAudioMode() {
-    isSoloAudioMode.value = !isSoloAudioMode.value;
+    isSoloAudioMode.value = true;
     if (isSoloAudioMode.value) {
       // 启用独占模式
       setFocus(focusedIndex.value);
@@ -261,6 +270,55 @@ class MultiViewController extends GetxController {
   }
 
   /// 选择并添加/替换直播间
+  void _schedulePlaybackPolicy() {
+    if (_isApplyingPlaybackPolicy) {
+      _playbackPolicyPending = true;
+      return;
+    }
+    unawaited(_applyPlaybackPolicy());
+  }
+
+  Future<void> _applyPlaybackPolicy() async {
+    if (_isApplyingPlaybackPolicy) return;
+    _isApplyingPlaybackPolicy = true;
+    try {
+      final visibleIndexes = _getVisibleIndexes();
+      final primaryIndex = visibleIndexes.contains(focusedIndex.value)
+          ? focusedIndex.value
+          : visibleIndexes.first;
+      final decodedIndexes = <int>[primaryIndex];
+      for (final index in visibleIndexes) {
+        if (index != primaryIndex &&
+            decodedIndexes.length < maxConcurrentDecoders) {
+          decodedIndexes.add(index);
+        }
+      }
+
+      await Future.wait(
+        List.generate(
+          items.length,
+          (index) => items[index].applyPlaybackPolicy(
+            shouldDecode: decodedIndexes.contains(index),
+            isPrimary: index == primaryIndex,
+          ),
+        ),
+      );
+    } finally {
+      _isApplyingPlaybackPolicy = false;
+      if (_playbackPolicyPending) {
+        _playbackPolicyPending = false;
+        _schedulePlaybackPolicy();
+      }
+    }
+  }
+
+  List<int> _getVisibleIndexes() {
+    if (isMaximized.value) {
+      return [maximizedIndex.value];
+    }
+    return List.generate(getVisibleCount(), (index) => index);
+  }
+
   Future<void> selectRoomForItem(int index) async {
     var result = await MultiViewSelectDialog.show(isLandscape: isFullScreen.value);
     if (result != null) {

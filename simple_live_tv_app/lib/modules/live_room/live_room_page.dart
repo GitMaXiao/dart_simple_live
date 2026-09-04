@@ -40,9 +40,7 @@ class LiveRoomPage extends GetView<LiveRoomController> {
         onKeyEvent: onKeyEvent,
         child: Scaffold(
           backgroundColor: Colors.black,
-          body: Obx(
-            () => buildMediaPlayer(),
-          ),
+          body: buildMediaPlayer(),
         ),
       ),
     );

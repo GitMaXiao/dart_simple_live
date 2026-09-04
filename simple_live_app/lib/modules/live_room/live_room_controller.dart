@@ -100,6 +100,8 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
   var countdown = 60.obs;
 
   Timer? autoExitTimer;
+  final List<LiveMessage> _pendingChatMessages = [];
+  Timer? _flushChatTimer;
 
   /// 设置的自动关闭时间（分钟）
   var autoExitMinutes = 60.obs;
@@ -250,11 +252,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
         }
       }
 
-      _addChatMessage(msg);
-
-      WidgetsBinding.instance.addPostFrameCallback(
-        (_) => chatScrollToBottom(),
-      );
+      _queueChatMessage(msg);
       if (!liveStatus.value || isBackground) {
         return;
       }
@@ -278,11 +276,33 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
     }
   }
 
-  void _addChatMessage(LiveMessage msg) {
-    if (messages.length >= _maxChatMessages) {
-      messages.removeRange(0, messages.length - _maxChatMessages + 1);
+  void _queueChatMessage(LiveMessage msg) {
+    _pendingChatMessages.add(msg);
+    if (_pendingChatMessages.length > _maxChatMessages) {
+      _pendingChatMessages.removeRange(
+        0,
+        _pendingChatMessages.length - _maxChatMessages,
+      );
     }
-    messages.add(msg);
+    _flushChatTimer ??=
+        Timer(const Duration(milliseconds: 100), _flushChatMessages);
+  }
+
+  void _flushChatMessages() {
+    _flushChatTimer = null;
+    if (_pendingChatMessages.isEmpty) {
+      return;
+    }
+    final removeCount =
+        (messages.length + _pendingChatMessages.length - _maxChatMessages)
+            .clamp(0, messages.length)
+            .toInt();
+    if (removeCount > 0) {
+      messages.removeRange(0, removeCount);
+    }
+    messages.addAll(_pendingChatMessages);
+    _pendingChatMessages.clear();
+    WidgetsBinding.instance.addPostFrameCallback((_) => chatScrollToBottom());
   }
 
   void _trimSuperChats() {
@@ -295,7 +315,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
 
   /// 添加一条系统消息
   void addSysMsg(String msg) {
-    _addChatMessage(
+    _queueChatMessage(
       LiveMessage(
         type: LiveMessageType.chat,
         userName: "LiveSysMessage",
@@ -1344,6 +1364,8 @@ ${error?.stackTrace}''');
     WidgetsBinding.instance.removeObserver(this);
     scrollController.removeListener(scrollListener);
     autoExitTimer?.cancel();
+    _flushChatTimer?.cancel();
+    _pendingChatMessages.clear();
 
     liveDanmaku.stop();
     danmakuController = null;

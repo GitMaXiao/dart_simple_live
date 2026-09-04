@@ -13,10 +13,12 @@ import 'package:simple_live_core/simple_live_core.dart';
 class MultiViewItemController {
   final int index;
   final Function(int index)? onFocusRequested;
+  final VoidCallback? onPlaybackStateChanged;
 
   MultiViewItemController({
     required this.index,
     this.onFocusRequested,
+    this.onPlaybackStateChanged,
   }) {
     _initPlayer();
   }
@@ -95,10 +97,14 @@ class MultiViewItemController {
 
   final RxDouble volume = 100.0.obs;
   final RxBool isMuted = false.obs;
+  final RxBool isPlaybackSuspended = false.obs;
+  final RxBool isPreviewQuality = false.obs;
 
   final RxList<LivePlayQuality> qualities = <LivePlayQuality>[].obs;
   final RxInt currentQualityIndex = (-1).obs;
   final RxList<String> playUrls = <String>[].obs;
+  int _preferredQualityIndex = 0;
+  int _policyVersion = 0;
 
   final RxList<LiveMessage> messages = <LiveMessage>[].obs;
 
@@ -136,6 +142,7 @@ class MultiViewItemController {
 
       // 默认选择第一个或最高清晰度
       currentQualityIndex.value = 0;
+      _preferredQualityIndex = 0;
       await _playCurrentQuality();
 
       // 初始化并连接弹幕
@@ -147,6 +154,8 @@ class MultiViewItemController {
       isLoading.value = false;
       isError.value = true;
       errorMsg.value = "加载失败: $e";
+    } finally {
+      onPlaybackStateChanged?.call();
     }
   }
 
@@ -185,12 +194,85 @@ class MultiViewItemController {
     }
   }
 
-  void switchQuality(int qIndex) async {
+  Future<void> switchQuality(
+    int qIndex, {
+    bool updatePreferredQuality = true,
+  }) async {
     if (qIndex < 0 || qIndex >= qualities.length) return;
     currentQualityIndex.value = qIndex;
+    if (updatePreferredQuality) {
+      _preferredQualityIndex = qIndex;
+    }
     isLoading.value = true;
     await _playCurrentQuality();
     isLoading.value = false;
+    onPlaybackStateChanged?.call();
+  }
+
+  Future<void> applyPlaybackPolicy({
+    required bool shouldDecode,
+    required bool isPrimary,
+  }) async {
+    final version = ++_policyVersion;
+    mute(!isPrimary);
+    if (!hasRoom.value) return;
+
+    try {
+      if (!shouldDecode) {
+        if (!isPlaybackSuspended.value) {
+          await player.pause();
+          if (version == _policyVersion) {
+            isPlaybackSuspended.value = true;
+          }
+        }
+        return;
+      }
+
+      if (isPlaybackSuspended.value) {
+        await player.play();
+        if (version != _policyVersion) return;
+        isPlaybackSuspended.value = false;
+      }
+
+      if (isPrimary) {
+        if (isPreviewQuality.value &&
+            _preferredQualityIndex != currentQualityIndex.value) {
+          await switchQuality(
+            _preferredQualityIndex,
+            updatePreferredQuality: false,
+          );
+        }
+        isPreviewQuality.value = false;
+      } else {
+        final lowQualityIndex = _getLowestQualityIndex();
+        if (lowQualityIndex >= 0 &&
+            lowQualityIndex != currentQualityIndex.value) {
+          await switchQuality(
+            lowQualityIndex,
+            updatePreferredQuality: false,
+          );
+        }
+        if (version == _policyVersion) {
+          isPreviewQuality.value = lowQualityIndex >= 0;
+        }
+      }
+    } catch (e) {
+      Log.e("MultiView item $index policy update failed: $e", StackTrace.current);
+    }
+  }
+
+  int _getLowestQualityIndex() {
+    if (qualities.isEmpty) return -1;
+    var candidate = 0;
+    for (var i = 1; i < qualities.length; i++) {
+      final item = qualities[i];
+      final selected = qualities[candidate];
+      if (item.sort < selected.sort ||
+          (item.sort == selected.sort && i > candidate)) {
+        candidate = i;
+      }
+    }
+    return candidate;
   }
 
   final RxBool danmakuConnected = false.obs;
@@ -262,11 +344,13 @@ class MultiViewItemController {
       isMuted.value = false;
     }
     player.setVolume(isMuted.value ? 0 : val);
+    onPlaybackStateChanged?.call();
   }
 
   void toggleMute() {
     isMuted.value = !isMuted.value;
     player.setVolume(isMuted.value ? 0 : volume.value);
+    onPlaybackStateChanged?.call();
   }
 
   void mute(bool mute) {
@@ -301,6 +385,9 @@ class MultiViewItemController {
     messages.clear();
     isError.value = false;
     errorMsg.value = "";
+    isPlaybackSuspended.value = false;
+    isPreviewQuality.value = false;
+    onPlaybackStateChanged?.call();
   }
 
   void dispose() {

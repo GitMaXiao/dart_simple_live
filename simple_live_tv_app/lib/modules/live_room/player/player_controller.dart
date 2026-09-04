@@ -163,13 +163,23 @@ mixin PlayerStateMixin on PlayerMixin {
   }
 }
 mixin PlayerDanmakuMixin on PlayerStateMixin {
-  static const _minimumDanmakuInterval = Duration(milliseconds: 80);
+  static const _maxOnScreenDanmakus = 36;
+  static const _maxPendingDanmakus = 80;
+  static const _flushInterval = Duration(milliseconds: 100);
 
   /// 弹幕控制器
   DanmakuController? danmakuController;
-  DateTime? _lastDanmakuAt;
+  final List<DanmakuContentItem> _pendingDanmakus = [];
+  final List<DateTime> _danmakuExpirations = [];
+  Timer? _flushDanmakuTimer;
 
   void initDanmakuController(DanmakuController e) {
+    if (danmakuController != e) {
+      _flushDanmakuTimer?.cancel();
+      _flushDanmakuTimer = null;
+      _pendingDanmakus.clear();
+      _danmakuExpirations.clear();
+    }
     danmakuController = e;
     // danmakuController?.updateOption(
     //   DanmakuOption(
@@ -188,23 +198,63 @@ mixin PlayerDanmakuMixin on PlayerStateMixin {
   }
 
   void disposeDanmakuController() {
+    _flushDanmakuTimer?.cancel();
+    _flushDanmakuTimer = null;
+    _pendingDanmakus.clear();
+    _danmakuExpirations.clear();
     danmakuController?.clear();
     danmakuController = null;
-    _lastDanmakuAt = null;
   }
 
   void addDanmaku(List<DanmakuContentItem> items) {
     if (!showDanmakuState.value || danmakuController == null || items.isEmpty) {
       return;
     }
-    final now = DateTime.now();
-    if (_lastDanmakuAt != null &&
-        now.difference(_lastDanmakuAt!) < _minimumDanmakuInterval) {
+
+    _pendingDanmakus.addAll(items);
+    if (_pendingDanmakus.length > _maxPendingDanmakus) {
+      _pendingDanmakus.removeRange(
+        0,
+        _pendingDanmakus.length - _maxPendingDanmakus,
+      );
+    }
+    _flushDanmakuTimer ??= Timer(_flushInterval, _flushDanmakus);
+  }
+
+  void _flushDanmakus() {
+    _flushDanmakuTimer = null;
+    if (!showDanmakuState.value || danmakuController == null) {
+      _pendingDanmakus.clear();
       return;
     }
-    _lastDanmakuAt = now;
-    for (var item in items) {
-      danmakuController!.addDanmaku(item);
+
+    final now = DateTime.now();
+    _danmakuExpirations.removeWhere((expiresAt) => !expiresAt.isAfter(now));
+    final available = _maxOnScreenDanmakus - _danmakuExpirations.length;
+    final count = available.clamp(0, _pendingDanmakus.length).toInt();
+    if (count > 0) {
+      final lifetime = Duration(
+        seconds: AppSettingsController.instance.danmuSpeed.value
+            .ceil()
+            .clamp(1, 30)
+            .toInt(),
+      );
+      for (final item in _pendingDanmakus.take(count)) {
+        danmakuController!.addDanmaku(item);
+        _danmakuExpirations.add(now.add(lifetime));
+      }
+      _pendingDanmakus.removeRange(0, count);
+    }
+
+    if (_pendingDanmakus.isNotEmpty && _danmakuExpirations.isNotEmpty) {
+      final nextExpiry = _danmakuExpirations.reduce(
+        (earliest, item) => item.isBefore(earliest) ? item : earliest,
+      );
+      final delay = nextExpiry.difference(DateTime.now());
+      _flushDanmakuTimer = Timer(
+        delay.isNegative ? Duration.zero : delay,
+        _flushDanmakus,
+      );
     }
   }
 }
